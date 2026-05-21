@@ -1,26 +1,109 @@
 @import "tailwindcss";
 
+/* ============================================================================
+   helvi-dashboard design tokens
+   --------------------------------------------------------------------------
+   Tokens are ported from the Helvi landing page (web-scribe-magic-34) so
+   the dashboard reads as the same product. The Helvi repo stores tokens as
+   raw HSL components inside :root and aliases them in tailwind.config.ts.
+   Tailwind 4 uses CSS-first config via @theme — so we declare each token
+   as a full color value directly under @theme. No tailwind.config.* file
+   needed in this project.
+
+   Two layers:
+     1. @theme  → Tailwind generates utility classes (bg-accent, text-muted-
+                  foreground, etc.) from these tokens.
+     2. :root   → Raw HSL components for inline style={{ ... }} usage
+                  (the same hsl(var(--tint-X)) pattern Helvi uses on its
+                  pastel section cards).
+   ========================================================================== */
+
+@theme {
+  /* ── Fonts ──────────────────────────────────────────────────────────────
+     Loaded as next/font CSS variables in app/layout.tsx. The variable
+     names are pinned there as well so the two stay in sync. */
+  --font-sans: var(--font-dm-sans), "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-instrument-serif), "Instrument Serif", Georgia, serif;
+
+  /* ── Surface + text ───────────────────────────────────────────────────── */
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(0 0% 7%);
+
+  /* ── Card / popover surfaces ─────────────────────────────────────────── */
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(0 0% 7%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(0 0% 7%);
+
+  /* ── Primary (dark CTA) ──────────────────────────────────────────────── */
+  --color-primary: hsl(0 0% 7%);
+  --color-primary-foreground: hsl(0 0% 100%);
+
+  /* ── Secondary / muted (warm cream surface) ──────────────────────────── */
+  --color-secondary: hsl(40 25% 96%);
+  --color-secondary-foreground: hsl(0 0% 7%);
+  --color-muted: hsl(40 25% 96%);
+  --color-muted-foreground: hsl(0 0% 40%);
+
+  /* ── Accent (Helvi blue) ─────────────────────────────────────────────── */
+  --color-accent: hsl(230 70% 56%);
+  --color-accent-foreground: hsl(0 0% 100%);
+
+  /* ── Destructive / warning ───────────────────────────────────────────── */
+  --color-destructive: hsl(0 70% 50%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-warning: hsl(35 95% 55%);
+  --color-success: hsl(150 55% 45%);
+
+  /* ── Borders + inputs ────────────────────────────────────────────────── */
+  --color-border: hsl(0 0% 90%);
+  --color-input: hsl(0 0% 90%);
+  --color-ring: hsl(0 0% 7%);
+
+  /* ── Helvi pastel tints — used as chart fills and KPI tile backgrounds ── */
+  --color-tint-lavender: hsl(265 35% 88%);
+  --color-tint-powder-blue: hsl(210 40% 88%);
+  --color-tint-dusty-pink: hsl(15 45% 88%);
+  --color-tint-taupe: hsl(35 25% 86%);
+  --color-tint-moss: hsl(85 20% 84%);
+  --color-tint-peach: hsl(25 60% 90%);
+
+  /* ── Border radius scale — matches Helvi's 0.875rem base ──────────────── */
+  --radius: 0.875rem;
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+/* ── Raw HSL components for inline style={{ background: 'hsl(var(--…))' }}
+   The same six tints, but exposed as bare HSL triples so Recharts can
+   accept them via CSS var lookups (recharts doesn't parse Tailwind
+   classes). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --tint-lavender: 265 35% 88%;
+  --tint-powder-blue: 210 40% 88%;
+  --tint-dusty-pink: 15 45% 88%;
+  --tint-taupe: 35 25% 86%;
+  --tint-moss: 85 20% 84%;
+  --tint-peach: 25 60% 90%;
+  --accent-raw: 230 70% 56%;
+  --muted-foreground-raw: 0 0% 40%;
+  --foreground-raw: 0 0% 7%;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ── Base body styles ────────────────────────────────────────────────────── */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The Helvi landing page exposes a `.font-editorial` utility for serif
+   headlines. Mirror it here for any dashboard headline that wants the
+   same visual weight (e.g. the page title on Overview). */
+.font-editorial {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.02em;
 }
