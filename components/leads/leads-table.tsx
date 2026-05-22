@@ -23,6 +23,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
+import { Download } from "lucide-react";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { cn, formatInt } from "@/lib/utils";
 
@@ -230,23 +231,24 @@ export function LeadsTable({ rows }: { rows: LeadRow[] }) {
   return (
     <>
       {/* === Strip: row count + clear + CSV === */}
-      <div className="flex items-center justify-end gap-3 px-4 py-2 border-b border-border">
-        <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+      <div className="flex items-center justify-end gap-3 px-5 py-3 border-b border-border">
+        <span className="num text-[12px] text-muted-foreground">
           {formatInt(visible.length)} / {formatInt(rows.length)}
         </span>
         {anyFilterActive && (
           <button
             onClick={clearAll}
-            className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+            className="h-8 rounded-md px-2.5 text-[13px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
-            clear filters
+            Clear filters
           </button>
         )}
         <button
           onClick={downloadCsv}
-          className="font-mono text-[11px] uppercase tracking-wider px-2.5 py-1 border border-border rounded-md bg-card hover:bg-muted text-foreground"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium text-foreground hover:bg-secondary"
         >
-          ↓ csv
+          <Download size={15} strokeWidth={1.75} aria-hidden />
+          <span>CSV</span>
         </button>
       </div>
 
@@ -256,7 +258,7 @@ export function LeadsTable({ rows }: { rows: LeadRow[] }) {
           <thead>
             <tr className="border-b border-border">
               <ColumnHeader
-                k="created_at" label="created_at"
+                k="created_at" label="Created"
                 sortKey={sortKey} sortDir={sortDir}
                 filtered={isColumnFiltered("created_at", filters)}
                 isOpen={openColumn === "created_at"}
@@ -267,7 +269,7 @@ export function LeadsTable({ rows }: { rows: LeadRow[] }) {
               </ColumnHeader>
 
               <ColumnHeader
-                k="email" label="email"
+                k="email" label="Email"
                 sortKey={sortKey} sortDir={sortDir}
                 filtered={isColumnFiltered("email", filters)}
                 isOpen={openColumn === "email"}
@@ -283,7 +285,7 @@ export function LeadsTable({ rows }: { rows: LeadRow[] }) {
               </ColumnHeader>
 
               <ColumnHeader
-                k="gender" label="gender"
+                k="gender" label="Gender"
                 sortKey={sortKey} sortDir={sortDir}
                 filtered={isColumnFiltered("gender", filters)}
                 isOpen={openColumn === "gender"}
@@ -301,7 +303,7 @@ export function LeadsTable({ rows }: { rows: LeadRow[] }) {
               </ColumnHeader>
 
               <ColumnHeader
-                k="eligibility" label="eligibility"
+                k="eligibility" label="Eligibility"
                 sortKey={sortKey} sortDir={sortDir}
                 filtered={isColumnFiltered("eligibility", filters)}
                 isOpen={openColumn === "eligibility"}
@@ -319,7 +321,7 @@ export function LeadsTable({ rows }: { rows: LeadRow[] }) {
               </ColumnHeader>
 
               <ColumnHeader
-                k="bmi" label="bmi" align="right"
+                k="bmi" label="BMI" align="right"
                 sortKey={sortKey} sortDir={sortDir}
                 filtered={isColumnFiltered("bmi", filters)}
                 isOpen={openColumn === "bmi"}
@@ -330,7 +332,7 @@ export function LeadsTable({ rows }: { rows: LeadRow[] }) {
               </ColumnHeader>
 
               <ColumnHeader
-                k="status" label="status"
+                k="status" label="Status"
                 sortKey={sortKey} sortDir={sortDir}
                 filtered={isColumnFiltered("status", filters)}
                 isOpen={openColumn === "status"}
@@ -348,7 +350,7 @@ export function LeadsTable({ rows }: { rows: LeadRow[] }) {
               </ColumnHeader>
 
               <ColumnHeader
-                k="source" label="source"
+                k="source" label="Source"
                 sortKey={sortKey} sortDir={sortDir}
                 filtered={isColumnFiltered("source", filters)}
                 isOpen={openColumn === "source"}
@@ -367,30 +369,30 @@ export function LeadsTable({ rows }: { rows: LeadRow[] }) {
           <tbody>
             {visible.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-xs text-muted-foreground">
+                <td colSpan={7} className="px-5 py-8 text-center text-sm text-muted-foreground">
                   {rows.length === 0 ? "No leads yet." : "No leads match the current filters."}
                 </td>
               </tr>
             )}
             {visible.map((r) => (
-              <tr key={r.lead_id} className="border-b border-border last:border-0">
-                <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{fmtDate(r.created_at)}</td>
-                <td className="px-4 py-2">{r.email}</td>
-                <td className="px-4 py-2 font-mono text-xs lowercase">{r.gender}</td>
-                <td className="px-4 py-2">
+              <tr key={r.lead_id} className="border-b border-border last:border-0 hover:bg-muted/45">
+                <td className="px-5 py-3 num text-[13px] text-muted-foreground">{fmtDate(r.created_at)}</td>
+                <td className="px-5 py-3 font-medium">{r.email}</td>
+                <td className="px-5 py-3 text-[13px] lowercase">{r.gender}</td>
+                <td className="px-5 py-3">
                   <Badge variant={ELIGIBILITY_VARIANT[r.eligibility] ?? "neutral"}>{r.eligibility}</Badge>
                 </td>
-                <td className="px-4 py-2 text-right metric">
+                <td className="px-5 py-3 text-right num">
                   {r.bmi !== null ? r.bmi.toFixed(1) : <span className="text-muted-foreground">—</span>}
                 </td>
-                <td className="px-4 py-2">
+                <td className="px-5 py-3">
                   {statusOf(r) === "booked" ? (
                     <Badge variant="booked">booked</Badge>
                   ) : (
                     <Badge variant="pending">lead</Badge>
                   )}
                 </td>
-                <td className="px-4 py-2 font-mono text-xs text-muted-foreground">
+                <td className="px-5 py-3 text-[13px] text-muted-foreground">
                   {r.utm_source ?? "(direct)"}
                   {r.utm_medium ? ` / ${r.utm_medium}` : ""}
                 </td>
@@ -443,7 +445,6 @@ function ColumnHeader({
         Recomputed on open, scroll, and resize so it stays anchored. ── */
   React.useLayoutEffect(() => {
     if (!isOpen) {
-      setPos(null);
       return;
     }
     const compute = () => {
@@ -492,7 +493,7 @@ function ColumnHeader({
   return (
     <th
       className={cn(
-        "px-4 py-2 font-mono text-[11px] uppercase tracking-wider font-medium",
+        "px-5 py-2.5 text-[12px] font-medium",
         align === "right" ? "text-right" : "text-left",
       )}
     >
@@ -525,7 +526,7 @@ function ColumnHeader({
               right: pos.right,
             }}
             className={cn(
-              "z-50 min-w-[200px] bg-card border border-border rounded-md shadow-md p-2",
+              "z-50 min-w-[200px] bg-card border border-border rounded-md shadow-lg p-2",
               "text-foreground normal-case tracking-normal text-left",
             )}
           >
@@ -583,7 +584,7 @@ function TextFilterPanel({
 }) {
   return (
     <div className="space-y-1.5">
-      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+      <div className="text-[12px] font-medium text-muted-foreground">
         {label}
       </div>
       <input
@@ -591,14 +592,14 @@ function TextFilterPanel({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         autoFocus
-        className="w-full font-mono text-xs px-2 py-1.5 border border-border rounded-md bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
+        className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-[13px] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent"
       />
       {value && (
         <button
           onClick={() => onChange("")}
-          className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+          className="text-[12px] font-medium text-muted-foreground hover:text-foreground"
         >
-          clear
+          Clear
         </button>
       )}
     </div>
@@ -630,7 +631,7 @@ function CheckboxFilterPanel<T extends string>({
               onChange={() => onToggle(opt)}
               className="h-3.5 w-3.5 accent-foreground cursor-pointer"
             />
-            <span className="font-mono text-xs">{opt}</span>
+            <span className="text-[13px]">{opt}</span>
           </label>
         );
       })}
@@ -641,9 +642,9 @@ function CheckboxFilterPanel<T extends string>({
             // is keyed off each toggle, so this stays consistent.
             selected.forEach((v) => onToggle(v));
           }}
-          className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground mt-1 ml-1.5"
+          className="text-[12px] font-medium text-muted-foreground hover:text-foreground mt-1 ml-1.5"
         >
-          clear
+          Clear
         </button>
       )}
     </div>
@@ -665,7 +666,7 @@ function PopoverButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "w-full flex items-center gap-2 px-1.5 py-1 rounded font-mono text-xs hover:bg-muted",
+        "w-full flex items-center gap-2 px-1.5 py-1 rounded text-[13px] hover:bg-muted",
         active ? "text-foreground" : "text-muted-foreground",
       )}
     >

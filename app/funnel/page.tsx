@@ -12,7 +12,8 @@
    precise numeric reference accompanying the visual funnel.
    ========================================================================== */
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, ExploreButton, PeriodFooter } from "@/components/ui/card";
+import { DashboardPage } from "@/components/ui/dashboard-page";
 import { FunnelHorizontal, type FunnelHorizontalRow } from "@/components/funnel/funnel-horizontal";
 import { FunnelFilters } from "@/components/funnel/funnel-filters";
 import {
@@ -74,57 +75,54 @@ export default async function FunnelPage({
   });
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="space-y-1">
-        <div className="font-mono text-xs text-muted-foreground">/funnel</div>
-        <h1 className="text-base font-medium tracking-tight">Acquisition funnel</h1>
-        <p className="text-xs text-muted-foreground max-w-3xl pt-1">
-          Per-visitor furthest-step reached. Each bar is sized as a share of Visited (= 100%);
-          the last bar, Booked, is the overall conversion rate. Slice with the filters below —
-          state lives in the URL so the view is shareable.
-        </p>
-      </div>
-
+    <DashboardPage title="Funnel" period={`${filters.from} to ${filters.to}`}>
       {/* === Filters — client component, writes to URL searchParams === */}
       <FunnelFilters filters={filters} options={options} />
 
       <Card>
         <CardHeader>
-          <CardTitle>visited → booked</CardTitle>
-          <CardDescription>
-            % of visited at each step, with stage-to-stage drop-off between bars
-          </CardDescription>
+          <div>
+            <CardTitle>Visited to booked</CardTitle>
+            <CardDescription>
+              Share of visited users reaching each step, with stage-to-stage drop-off.
+            </CardDescription>
+          </div>
+          <ExploreButton label="Visited to booked" />
         </CardHeader>
         <CardContent className="pb-4">
           <FunnelHorizontal rows={funnelRows} />
         </CardContent>
+        <PeriodFooter current="Selected period" />
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>drop-off / step</CardTitle>
-          <CardDescription>percentage of visitors at each step who did not reach the next one</CardDescription>
+          <div>
+            <CardTitle>Drop-off by step</CardTitle>
+            <CardDescription>Visitors at each step who did not reach the next one.</CardDescription>
+          </div>
+          <ExploreButton label="Drop-off by step" />
         </CardHeader>
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left font-mono text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
-                <th className="px-4 py-2 font-medium">step</th>
-                <th className="px-4 py-2 font-medium text-right">reached</th>
-                <th className="px-4 py-2 font-medium text-right">stopped</th>
-                <th className="px-4 py-2 font-medium text-right">drop_to_next</th>
+              <tr className="border-b border-border text-left text-[12px] font-medium text-muted-foreground">
+                <th className="px-5 py-2.5 font-medium">Step</th>
+                <th className="px-5 py-2.5 font-medium text-right">Reached</th>
+                <th className="px-5 py-2.5 font-medium text-right">Stopped</th>
+                <th className="px-5 py-2.5 font-medium text-right">Drop to next</th>
               </tr>
             </thead>
             <tbody>
               {tableRows.map((row, idx) => (
-                <tr key={row.label} className="border-b border-border last:border-0">
-                  <td className="px-4 py-2">
-                    <span className="font-mono text-xs text-muted-foreground mr-2">{String(idx + 1).padStart(2, "0")}</span>
+                <tr key={row.label} className="border-b border-border last:border-0 hover:bg-muted/45">
+                  <td className="px-5 py-3">
+                    <span className="num text-xs text-muted-foreground mr-2">{String(idx + 1).padStart(2, "0")}</span>
                     {row.label}
                   </td>
-                  <td className="px-4 py-2 text-right metric">{formatInt(row.reached)}</td>
-                  <td className="px-4 py-2 text-right metric text-muted-foreground">{formatInt(row.dropped)}</td>
-                  <td className="px-4 py-2 text-right metric">
+                  <td className="px-5 py-3 text-right num">{formatInt(row.reached)}</td>
+                  <td className="px-5 py-3 text-right num text-muted-foreground">{formatInt(row.dropped)}</td>
+                  <td className="px-5 py-3 text-right num">
                     {row.drop_to_next_pct === null ? <span className="text-muted-foreground">—</span> : formatPct(row.drop_to_next_pct)}
                   </td>
                 </tr>
@@ -133,6 +131,6 @@ export default async function FunnelPage({
           </table>
         </CardContent>
       </Card>
-    </div>
+    </DashboardPage>
   );
 }

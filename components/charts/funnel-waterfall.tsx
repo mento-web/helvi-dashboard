@@ -17,17 +17,24 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 
 type Row = { label: string; visitors: number };
 
+const compact = new Intl.NumberFormat("en-CH", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
 export function FunnelWaterfall({ data }: { data: Row[] }) {
   return (
-    <ResponsiveContainer width="100%" height={Math.max(data.length * 40, 280)}>
+    <ResponsiveContainer width="100%" height={Math.max(data.length * 38, 280)}>
       <BarChart data={data} layout="vertical" margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-        <CartesianGrid horizontal={false} stroke="hsl(var(--foreground-raw) / 0.06)" />
+        <CartesianGrid horizontal={false} stroke="hsl(var(--foreground-raw) / 0.07)" />
         <XAxis
           type="number"
           stroke="hsl(var(--muted-foreground-raw))"
           fontSize={11}
           tickLine={false}
           axisLine={false}
+          tickCount={4}
+          tickFormatter={(v: number) => compact.format(v)}
         />
         <YAxis
           type="category"
@@ -42,13 +49,14 @@ export function FunnelWaterfall({ data }: { data: Row[] }) {
           cursor={{ fill: "hsl(var(--foreground-raw) / 0.04)" }}
           contentStyle={{
             background: "hsl(0 0% 100%)",
-            border: "1px solid hsl(0 0% 90%)",
+            border: "1px solid hsl(var(--foreground-raw) / 0.08)",
             borderRadius: "0.5rem",
             fontSize: 12,
+            boxShadow: "0 8px 24px hsl(var(--foreground-raw) / 0.08)",
           }}
           formatter={(value) => [Number(value).toLocaleString("en-CH"), "Visitors"]}
         />
-        <Bar dataKey="visitors" fill="hsl(var(--accent-raw))" radius={[0, 4, 4, 0]} />
+        <Bar dataKey="visitors" fill="hsl(var(--accent-raw))" radius={[0, 5, 5, 0]} barSize={18} />
       </BarChart>
     </ResponsiveContainer>
   );

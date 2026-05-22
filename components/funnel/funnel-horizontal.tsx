@@ -84,10 +84,10 @@ export function FunnelHorizontal({ rows }: { rows: FunnelHorizontalRow[] }) {
               i > 0 && "border-l border-border",
             )}
           >
-            <div className="font-mono text-[10px] text-muted-foreground tabular-nums">
+            <div className="num text-[11px] text-muted-foreground">
               {String(i + 1).padStart(2, "0")}
             </div>
-            <div className="text-xs font-medium leading-tight mt-0.5">
+            <div className="text-[12px] font-medium leading-tight mt-0.5">
               {r.label}
             </div>
           </div>
@@ -104,7 +104,7 @@ export function FunnelHorizontal({ rows }: { rows: FunnelHorizontalRow[] }) {
           <div key={i} className="relative">
             {r.drop_from_prev_pct !== null && (
               <span
-                className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 font-mono text-[10px] text-muted-foreground bg-card border border-border rounded px-1.5 py-0.5 tabular-nums whitespace-nowrap"
+                className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 num text-[11px] text-muted-foreground bg-card shadow-card rounded px-1.5 py-0.5 whitespace-nowrap"
                 title={`${formatInt(r.drop_from_prev_count ?? 0)} visitors lost between ${rows[i - 1].label} and ${r.label}`}
               >
                 <span className="text-foreground/60">↓</span>
@@ -160,10 +160,10 @@ export function FunnelHorizontal({ rows }: { rows: FunnelHorizontalRow[] }) {
               i > 0 && "border-l border-border",
             )}
           >
-            <div className="font-mono text-sm tabular-nums">
+            <div className="num text-sm font-medium">
               {formatInt(r.reached)}
             </div>
-            <div className="font-mono text-[10px] text-muted-foreground tabular-nums mt-0.5">
+            <div className="num text-[11px] text-muted-foreground mt-0.5">
               {formatPct(r.pct_of_visited)}
             </div>
           </div>
@@ -171,11 +171,11 @@ export function FunnelHorizontal({ rows }: { rows: FunnelHorizontalRow[] }) {
       </div>
 
       {/* ── Overall conversion callout ─────────────────────────────── */}
-      <div className="mt-4 pt-3 border-t border-border flex items-center justify-between font-mono">
-        <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-          overall conversion · visited → booked
+      <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+        <span className="text-[12px] font-medium text-muted-foreground">
+          Overall conversion
         </span>
-        <span className="tabular-nums">
+        <span className="num">
           <span className="text-foreground text-sm font-medium">
             {formatPct(final.pct_of_visited)}
           </span>

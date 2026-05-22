@@ -109,10 +109,10 @@ export function FunnelFilters({
   );
 
   return (
-    <div className="rounded-md border border-border bg-card p-3 flex flex-col gap-2.5">
+    <div className="rounded-[10px] bg-card p-4 shadow-card flex flex-col gap-3">
       {/* ── Row 1 · date range + presets + reset ────────────────────── */}
       <div className="flex items-center flex-wrap gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground w-16 shrink-0">
+        <span className="text-[12px] font-medium text-muted-foreground w-20 shrink-0">
           Date
         </span>
         <DateField value={filters.from} onChange={(v) => setDate("from", v)} />
@@ -126,16 +126,16 @@ export function FunnelFilters({
         {anyFilterActive && (
           <button
             onClick={resetAll}
-            className="ml-auto font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+            className="ml-auto h-8 rounded-md px-2.5 text-[13px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
-            reset all
+            Reset
           </button>
         )}
       </div>
 
       {/* ── Row 2 · traffic dimensions ──────────────────────────────── */}
       <div className="flex items-center flex-wrap gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground w-16 shrink-0">
+        <span className="text-[12px] font-medium text-muted-foreground w-20 shrink-0">
           Traffic
         </span>
         {TRAFFIC_KEYS.map((k) => (
@@ -151,7 +151,7 @@ export function FunnelFilters({
 
       {/* ── Row 3 · demographics ───────────────────────────────────── */}
       <div className="flex items-center flex-wrap gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground w-16 shrink-0">
+        <span className="text-[12px] font-medium text-muted-foreground w-20 shrink-0">
           Demo
         </span>
         {DEMO_KEYS.map((k) => (
@@ -165,8 +165,8 @@ export function FunnelFilters({
           />
         ))}
         {demographicActive && (
-          <span className="text-[10px] text-muted-foreground italic ml-1">
-            ⓘ Demographic filters narrow the funnel to visitors who reached the survey.
+          <span className="text-[12px] text-muted-foreground ml-1">
+            Demographic filters apply after survey start.
           </span>
         )}
       </div>
@@ -187,7 +187,7 @@ function DateField({
       type="date"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="font-mono text-xs px-2 py-1 border border-border rounded bg-card focus:outline-none focus:ring-1 focus:ring-foreground"
+      className="h-8 rounded-md border border-border bg-card px-2.5 text-[13px] text-foreground focus:outline-none focus:ring-1 focus:ring-accent"
     />
   );
 }
@@ -204,7 +204,7 @@ function PresetChip({
     <button
       type="button"
       onClick={onClick}
-      className="font-mono text-[11px] uppercase tracking-wider px-2 py-1 border border-border rounded bg-card hover:bg-muted text-muted-foreground hover:text-foreground"
+      className="h-8 rounded-md px-2.5 text-[13px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
     >
       {children}
     </button>
@@ -236,7 +236,6 @@ function MultiSelect({
 
   React.useLayoutEffect(() => {
     if (!open || !triggerRef.current) {
-      setPos(null);
       return;
     }
     const compute = () => {
@@ -289,11 +288,11 @@ function MultiSelect({
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "font-mono text-[11px] px-2 py-1 border rounded inline-flex items-center gap-1.5 transition-colors",
+          "h-8 rounded-md border border-transparent px-2.5 text-[13px] font-medium inline-flex items-center gap-1.5 transition-colors",
           disabled
-            ? "border-border bg-muted/50 text-muted-foreground/40 cursor-not-allowed"
-            : "border-border bg-card hover:bg-muted",
-          hasValues && !disabled && "text-foreground border-foreground/30",
+            ? "bg-muted/50 text-muted-foreground/40 cursor-not-allowed"
+            : "bg-card hover:bg-secondary",
+          hasValues && !disabled && "text-foreground border-accent/40",
           !hasValues && !disabled && "text-muted-foreground",
           demographic && hasValues && "border-accent/50",
         )}
@@ -308,11 +307,11 @@ function MultiSelect({
           <div
             ref={popoverRef}
             style={{ position: "fixed", top: pos.top, left: pos.left }}
-            className="z-50 min-w-[220px] max-h-[320px] overflow-y-auto bg-card border border-border rounded-md shadow-md p-2 text-foreground"
+            className="z-50 min-w-[220px] max-h-[320px] overflow-y-auto bg-card border border-border rounded-md shadow-lg p-2 text-foreground"
           >
             {options.length === 0 && !hasValues ? (
-              <div className="font-mono text-[11px] text-muted-foreground px-1.5 py-1">
-                no values in range
+              <div className="text-[12px] text-muted-foreground px-1.5 py-1">
+                No values in range
               </div>
             ) : (
               <>
@@ -329,7 +328,7 @@ function MultiSelect({
                         onChange={() => toggle(opt)}
                         className="h-3.5 w-3.5 accent-foreground cursor-pointer shrink-0"
                       />
-                      <span className="font-mono text-xs truncate">{opt}</span>
+                      <span className="text-[13px] truncate">{opt}</span>
                     </label>
                   );
                 })}
@@ -347,16 +346,16 @@ function MultiSelect({
                       onChange={() => toggle(opt)}
                       className="h-3.5 w-3.5 accent-foreground cursor-pointer shrink-0"
                     />
-                    <span className="font-mono text-xs truncate italic">{opt} (out of range)</span>
+                    <span className="text-[13px] truncate italic">{opt} (out of range)</span>
                   </label>
                 ))}
                 {hasValues && (
                   <button
                     type="button"
                     onClick={() => onChange([])}
-                    className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground mt-2 ml-1.5"
+                    className="text-[12px] font-medium text-muted-foreground hover:text-foreground mt-2 ml-1.5"
                   >
-                    clear
+                    Clear
                   </button>
                 )}
               </>

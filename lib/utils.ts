@@ -18,6 +18,10 @@ export function cn(...inputs: ClassValue[]): string {
    decimal). Intl handles that for free. */
 const NF_INT = new Intl.NumberFormat("en-CH", { maximumFractionDigits: 0 });
 const NF_PCT = new Intl.NumberFormat("en-CH", { maximumFractionDigits: 1 });
+const NF_COMPACT = new Intl.NumberFormat("en-CH", {
+  maximumFractionDigits: 1,
+  notation: "compact",
+});
 
 export function formatInt(n: number | null | undefined): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
@@ -27,4 +31,24 @@ export function formatInt(n: number | null | undefined): string {
 export function formatPct(n: number | null | undefined): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "—";
   return `${NF_PCT.format(n)}%`;
+}
+
+export function formatCompact(n: number | null | undefined): string {
+  if (n === null || n === undefined || Number.isNaN(n)) return "—";
+  return NF_COMPACT.format(n);
+}
+
+export function deltaPct(current: number | null | undefined, previous: number | null | undefined): number | null {
+  if (
+    current === null ||
+    current === undefined ||
+    previous === null ||
+    previous === undefined ||
+    Number.isNaN(current) ||
+    Number.isNaN(previous) ||
+    previous === 0
+  ) {
+    return null;
+  }
+  return ((current - previous) / previous) * 100;
 }

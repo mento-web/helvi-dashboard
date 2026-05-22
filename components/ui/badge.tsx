@@ -1,6 +1,9 @@
 /* ============================================================================
-   ui/badge.tsx — small status pill used on the Leads page.
-   Three variants matching the leads.eligibility CHECK constraint.
+   ui/badge.tsx — Shopify-style status pill.
+
+   Soft tinted background + dark text. Three semantic eligibility variants
+   keyed to the leads.eligibility CHECK constraint, plus booked/lead for
+   the funnel status.
    ========================================================================== */
 
 import * as React from "react";
@@ -10,7 +13,7 @@ const VARIANTS = {
   eligible:   "bg-tint-moss text-foreground",
   borderline: "bg-tint-peach text-foreground",
   "low-bmi":  "bg-tint-dusty-pink text-foreground",
-  booked:     "bg-accent text-accent-foreground",
+  booked:     "bg-accent/10 text-accent",
   pending:    "bg-muted text-muted-foreground",
   neutral:    "bg-muted text-foreground",
 } as const;
@@ -25,7 +28,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+        "inline-flex items-center rounded-full px-2 py-0.5 text-[11.5px] font-medium",
         VARIANTS[variant],
         className,
       )}

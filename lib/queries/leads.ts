@@ -8,6 +8,7 @@
 
 import { getSupabase } from "@/lib/supabase/server";
 import { TENANT_ID } from "@/lib/tenant";
+import { deltaPct } from "@/lib/utils";
 
 export type RecentLeadRow = {
   tenant_id: string;
@@ -103,6 +104,179 @@ export async function getKpiCounts(days = 7): Promise<{
   const leads    = leadsRes.count ?? 0;
   const bookings = bookingsRes.count ?? 0;
   const conversion_pct = visitors > 0 ? (bookings / visitors) * 100 : null;
+
+  return { visitors, leads, bookings, conversion_pct };
+}
+
+type KpiCounts = {
+  visitors: number;
+  leads: number;
+  bookings: number;
+  conversion_pct: number | null;
+};
+
+type KpiComparison = {
+  current: KpiCounts;
+  previous: KpiCounts;
+  delta: {
+    visitors: number | null;
+    leads: number | null;
+    bookings: number | null;
+    conversion_pct: number | null;
+  };
+};
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function startOfUtcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function dayKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+async function getKpiCountsForRange(from: Date, to: Date): Promise<KpiCounts> {
+  const supabase = getSupabase();
+  const fromDate = dayKey(from);
+  const toDate = dayKey(to);
+  const fromTs = from.toISOString();
+  const toTs = to.toISOString();
+
+  const visitorsP = supabase
+    .from("funnel_daily")
+    .select("visitor_count")
+    .eq("tenant_id", TENANT_ID)
+    .eq("event_name", "page_viewed")
+    .gte("day", fromDate)
+    .lt("day", toDate);
+
+  const leadsP = supabase
+    .from("leads")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", TENANT_ID)
+    .gte("created_at", fromTs)
+    .lt("created_at", toTs);
+
+  const bookingsP = supabase
+    .from("leads")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", TENANT_ID)
+    .not("booking_confirmed_at", "is", null)
+    .gte("booking_confirmed_at", fromTs)
+    .lt("booking_confirmed_at", toTs);
+
+  const [visitorsRes, leadsRes, bookingsRes] = await Promise.all([visitorsP, leadsP, bookingsP]);
+
+  if (visitorsRes.error) console.error("[kpi] visitors range:", visitorsRes.error.message);
+  if (leadsRes.error) console.error("[kpi] leads range:", leadsRes.error.message);
+  if (bookingsRes.error) console.error("[kpi] bookings range:", bookingsRes.error.message);
+
+  const visitors = (visitorsRes.data ?? []).reduce((a, r) => a + (r.visitor_count ?? 0), 0);
+  const leads = leadsRes.count ?? 0;
+  const bookings = bookingsRes.count ?? 0;
+  const conversion_pct = visitors > 0 ? (bookings / visitors) * 100 : null;
+
+  return { visitors, leads, bookings, conversion_pct };
+}
+
+export async function getKpiComparison(days = 7): Promise<KpiComparison> {
+  const currentEnd = startOfUtcDay(addDays(new Date(), 1));
+  const currentStart = addDays(currentEnd, -days);
+  const previousStart = addDays(currentStart, -days);
+
+  const [current, previous] = await Promise.all([
+    getKpiCountsForRange(currentStart, currentEnd),
+    getKpiCountsForRange(previousStart, currentStart),
+  ]);
+
+  return {
+    current,
+    previous,
+    delta: {
+      visitors: deltaPct(current.visitors, previous.visitors),
+      leads: deltaPct(current.leads, previous.leads),
+      bookings: deltaPct(current.bookings, previous.bookings),
+      conversion_pct: deltaPct(current.conversion_pct, previous.conversion_pct),
+    },
+  };
+}
+
+export async function getKpiTrends(days = 7): Promise<{
+  visitors: number[];
+  leads: number[];
+  bookings: number[];
+  conversion_pct: number[];
+}> {
+  const supabase = getSupabase();
+  const end = startOfUtcDay(addDays(new Date(), 1));
+  const start = addDays(end, -days);
+  const fromDate = dayKey(start);
+  const toDate = dayKey(end);
+  const fromTs = start.toISOString();
+  const toTs = end.toISOString();
+  const dates = Array.from({ length: days }, (_, i) => dayKey(addDays(start, i)));
+
+  const visitorsP = supabase
+    .from("funnel_daily")
+    .select("day, visitor_count")
+    .eq("tenant_id", TENANT_ID)
+    .eq("event_name", "page_viewed")
+    .gte("day", fromDate)
+    .lt("day", toDate)
+    .returns<Array<{ day: string; visitor_count: number }>>();
+
+  const leadsP = supabase
+    .from("leads")
+    .select("created_at")
+    .eq("tenant_id", TENANT_ID)
+    .gte("created_at", fromTs)
+    .lt("created_at", toTs)
+    .returns<Array<{ created_at: string }>>();
+
+  const bookingsP = supabase
+    .from("leads")
+    .select("booking_confirmed_at")
+    .eq("tenant_id", TENANT_ID)
+    .not("booking_confirmed_at", "is", null)
+    .gte("booking_confirmed_at", fromTs)
+    .lt("booking_confirmed_at", toTs)
+    .returns<Array<{ booking_confirmed_at: string | null }>>();
+
+  const [visitorsRes, leadsRes, bookingsRes] = await Promise.all([visitorsP, leadsP, bookingsP]);
+
+  if (visitorsRes.error) console.error("[kpi] visitor trend:", visitorsRes.error.message);
+  if (leadsRes.error) console.error("[kpi] lead trend:", leadsRes.error.message);
+  if (bookingsRes.error) console.error("[kpi] booking trend:", bookingsRes.error.message);
+
+  const visitorsByDay = new Map(dates.map((d) => [d, 0]));
+  const leadsByDay = new Map(dates.map((d) => [d, 0]));
+  const bookingsByDay = new Map(dates.map((d) => [d, 0]));
+
+  for (const row of visitorsRes.data ?? []) {
+    visitorsByDay.set(row.day, (visitorsByDay.get(row.day) ?? 0) + (row.visitor_count ?? 0));
+  }
+  for (const row of leadsRes.data ?? []) {
+    const key = row.created_at.slice(0, 10);
+    if (leadsByDay.has(key)) leadsByDay.set(key, (leadsByDay.get(key) ?? 0) + 1);
+  }
+  for (const row of bookingsRes.data ?? []) {
+    if (!row.booking_confirmed_at) continue;
+    const key = row.booking_confirmed_at.slice(0, 10);
+    if (bookingsByDay.has(key)) bookingsByDay.set(key, (bookingsByDay.get(key) ?? 0) + 1);
+  }
+
+  const visitors = dates.map((d) => visitorsByDay.get(d) ?? 0);
+  const leads = dates.map((d) => leadsByDay.get(d) ?? 0);
+  const bookings = dates.map((d) => bookingsByDay.get(d) ?? 0);
+  const conversion_pct = dates.map((d) => {
+    const visitorCount = visitorsByDay.get(d) ?? 0;
+    return visitorCount > 0 ? ((bookingsByDay.get(d) ?? 0) / visitorCount) * 100 : 0;
+  });
 
   return { visitors, leads, bookings, conversion_pct };
 }

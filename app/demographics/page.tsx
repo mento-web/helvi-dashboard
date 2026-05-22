@@ -7,7 +7,8 @@
      - Eligibility outcome with booking overlay (paired bar)
    ========================================================================== */
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, ExploreButton, PeriodFooter } from "@/components/ui/card";
+import { DashboardPage } from "@/components/ui/dashboard-page";
 import { BmiHistogram } from "@/components/charts/bmi-histogram";
 import { EligibilityBar } from "@/components/charts/eligibility-bar";
 import { GenderPie } from "@/components/charts/gender-pie";
@@ -26,49 +27,50 @@ export default async function DemographicsPage() {
   const eligibility = getEligibilitySplit(rows);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="space-y-1">
-        <div className="font-mono text-xs text-muted-foreground">/demographics</div>
-        <h1 className="text-base font-medium tracking-tight">Lead segments</h1>
-        <p className="text-xs text-muted-foreground max-w-3xl pt-1">
-          All leads to date, grouped by gender, WHO BMI bucket, and survey eligibility outcome.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <DashboardPage title="Demographics" period="All time">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>gender</CardTitle>
-            <CardDescription>leads by self-reported gender on the survey</CardDescription>
+            <div>
+              <CardTitle>Leads by gender</CardTitle>
+              <CardDescription>Self-reported gender from the survey.</CardDescription>
+            </div>
+            <ExploreButton label="Leads by gender" />
           </CardHeader>
           <CardContent>
             <GenderPie data={gender} />
           </CardContent>
+          <PeriodFooter current="All time" />
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>eligibility</CardTitle>
-            <CardDescription>leads (cream) vs booked leads (helvi blue) per band</CardDescription>
+            <div>
+              <CardTitle>Eligibility by booking status</CardTitle>
+              <CardDescription>Leads and confirmed bookings per eligibility outcome.</CardDescription>
+            </div>
+            <ExploreButton label="Eligibility by booking status" />
           </CardHeader>
           <CardContent>
             <EligibilityBar data={eligibility} />
           </CardContent>
+          <PeriodFooter current="All time" />
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>bmi distribution</CardTitle>
-          <CardDescription>
-            WHO categories from underweight to obese class III. Includes leads without a recorded
-            BMI in the &quot;Unknown&quot; bucket.
-          </CardDescription>
+          <div>
+            <CardTitle>BMI distribution</CardTitle>
+            <CardDescription>WHO categories, including leads without a recorded BMI.</CardDescription>
+          </div>
+          <ExploreButton label="BMI distribution" />
         </CardHeader>
         <CardContent>
           <BmiHistogram data={bmi} />
         </CardContent>
+        <PeriodFooter current="All time" />
       </Card>
-    </div>
+    </DashboardPage>
   );
 }

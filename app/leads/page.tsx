@@ -7,7 +7,8 @@
    <LeadsTable> client component. This page just fetches and passes data.
    ========================================================================== */
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, ExploreButton, PeriodFooter } from "@/components/ui/card";
+import { DashboardPage } from "@/components/ui/dashboard-page";
 import { LeadsTable, type LeadRow } from "@/components/leads/leads-table";
 import { getRecentLeads } from "@/lib/queries/leads";
 import { formatInt } from "@/lib/utils";
@@ -30,25 +31,20 @@ export default async function LeadsPage() {
   }));
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="space-y-1">
-        <div className="font-mono text-xs text-muted-foreground">/leads</div>
-        <h1 className="text-base font-medium tracking-tight">Recent submissions</h1>
-        <p className="text-xs text-muted-foreground max-w-3xl pt-1">
-          {formatInt(rows.length)} most recent leads, newest first. Booked = confirmed Cal.com slot.
-          Click any column header to sort or filter. Download visible rows as CSV from the top right.
-        </p>
-      </div>
-
+    <DashboardPage title="Leads" period="Latest 100">
       <Card>
         <CardHeader>
-          <CardTitle>recent_leads</CardTitle>
-          <CardDescription>joined with each lead&apos;s first-touch utm source</CardDescription>
+          <div>
+            <CardTitle>Recent submissions</CardTitle>
+            <CardDescription>{formatInt(rows.length)} most recent leads with first-touch source.</CardDescription>
+          </div>
+          <ExploreButton label="Recent submissions" />
         </CardHeader>
         <CardContent className="p-0">
           <LeadsTable rows={rows} />
         </CardContent>
+        <PeriodFooter current="Latest 100" />
       </Card>
-    </div>
+    </DashboardPage>
   );
 }

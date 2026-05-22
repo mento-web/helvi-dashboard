@@ -119,6 +119,63 @@ export async function getTrafficDaily(days = 30): Promise<
   return (data ?? []).map((row) => ({ day: row.day, visitors: row.visitor_count }));
 }
 
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function startOfUtcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function dayKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/* ── getTrafficDailyComparison ───────────────────────────────────────────
+   Current calendar window plus the immediately previous window, aligned by
+   day index so the chart can draw a solid current-period line and dotted
+   comparison line. */
+export async function getTrafficDailyComparison(days = 30): Promise<
+  Array<{ day: string; visitors: number; comparisonVisitors: number }>
+> {
+  const supabase = getSupabase();
+  const currentEnd = startOfUtcDay(addDays(new Date(), 1));
+  const currentStart = addDays(currentEnd, -days);
+  const previousStart = addDays(currentStart, -days);
+
+  const { data, error } = await supabase
+    .from("funnel_daily")
+    .select("day, visitor_count")
+    .eq("tenant_id", TENANT_ID)
+    .eq("event_name", "page_viewed")
+    .gte("day", dayKey(previousStart))
+    .lt("day", dayKey(currentEnd))
+    .order("day", { ascending: true })
+    .returns<Pick<FunnelDailyRow, "day" | "visitor_count">[]>();
+
+  if (error) {
+    console.error("[funnel] getTrafficDailyComparison failed:", error.message);
+    return [];
+  }
+
+  const byDay = new Map<string, number>();
+  for (const row of data ?? []) {
+    byDay.set(row.day, (byDay.get(row.day) ?? 0) + row.visitor_count);
+  }
+
+  return Array.from({ length: days }, (_, i) => {
+    const day = dayKey(addDays(currentStart, i));
+    const comparisonDay = dayKey(addDays(previousStart, i));
+    return {
+      day,
+      visitors: byDay.get(day) ?? 0,
+      comparisonVisitors: byDay.get(comparisonDay) ?? 0,
+    };
+  });
+}
+
 /* ── getFunnelConversion ─────────────────────────────────────────────────
    Per-visitor furthest step reached, aggregated to a histogram. Used by
    the Funnel page to show the drop-off curve.
