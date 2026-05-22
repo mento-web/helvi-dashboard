@@ -41,21 +41,26 @@ to a page is a full SSR pass; refreshes hit the cached Supabase responses.
 2. In **Project Settings → Environment Variables**, add:
    - `NEXT_PUBLIC_SUPABASE_URL` (same as Helvi's: see `.env.local.example`)
    - `SUPABASE_SERVICE_ROLE_KEY` (from Supabase dashboard → API)
-3. In **Project Settings → Deployment Protection**, enable
-   **Password Protection** for the Production deployment and share that
-   password with stakeholders. This is the v1 access gate.
+3. Deploy.
 4. Optionally configure a custom domain
    (`dashboard.helvi.app` or similar).
 
-### Why service-role + Vercel password and not Supabase Auth?
+> ⚠️ **No access gate in v1.** The production URL is public to anyone who
+> has it. Discoverability is the only barrier — the page has a `noindex`
+> meta so search engines won't surface it, but if the URL leaks, the
+> data is visible. When this becomes a problem (more viewers, sensitive
+> data, customer-facing), add Vercel Password Protection (Pro plan),
+> Standard Protection (Hobby — gates by Vercel account login), or build
+> a custom cookie-based middleware in this repo.
+
+### Why service-role and not Supabase Auth?
 
 The dashboard is shown to a handful of stakeholders, not the public.
-A single shared Vercel password is enough access control for v1 and
-saves us from building per-user admin tables, magic-link flows, and
-RLS read policies. The `SUPABASE_SERVICE_ROLE_KEY` is read from
-`lib/supabase/server.ts` which starts with `import "server-only"` —
-Next.js fails the build if a Client Component ever imports it, so the
-key cannot leak into the browser bundle.
+Skipping Supabase Auth saves us from building per-user admin tables,
+magic-link flows, and RLS read policies. The `SUPABASE_SERVICE_ROLE_KEY`
+is read from `lib/supabase/server.ts` which starts with
+`import "server-only"` — Next.js fails the build if a Client Component
+ever imports it, so the key cannot leak into the browser bundle.
 
 When the dashboard outgrows that model (more viewers, customer-facing,
 multi-tenant), see the plan file for the upgrade path: swap the
