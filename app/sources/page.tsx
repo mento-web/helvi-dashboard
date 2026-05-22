@@ -1,27 +1,44 @@
 /* ============================================================================
    app/sources/page.tsx — Traffic attribution.
 
-   Renders the traffic_sources view as a dense table. Sort order is
-   visitor_count desc from the view; no client-side resort in v1.
+   Renders a source-ranking bar chart first, then the detailed traffic_sources
+   table below it. The table keeps the raw medium/campaign buckets; the chart
+   aggregates those buckets by source for a cleaner referral overview.
    ========================================================================== */
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, ExploreButton, PeriodFooter } from "@/components/ui/card";
 import { DashboardPage } from "@/components/ui/dashboard-page";
+import { ReferralSourceBars, type ReferralSourceBarRow } from "@/components/charts/referral-source-bars";
 import { getTrafficSources } from "@/lib/queries/sources";
 import { formatInt, formatPct } from "@/lib/utils";
 
 export default async function SourcesPage() {
   const sources = await getTrafficSources(50);
+  const chartRows = buildSourceChartRows(sources);
 
   return (
     <DashboardPage title="Sources" period="All time">
       <Card>
         <CardHeader>
           <div>
-            <CardTitle>Top sources</CardTitle>
+            <CardTitle>Referral source</CardTitle>
+            <CardDescription>First-touch visitors grouped by source.</CardDescription>
+          </div>
+          <ExploreButton label="Referral source" />
+        </CardHeader>
+        <CardContent>
+          <ReferralSourceBars rows={chartRows} />
+        </CardContent>
+        <PeriodFooter current="All time" />
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Source details</CardTitle>
             <CardDescription>First-touch attribution by visitor count and booking conversion.</CardDescription>
           </div>
-          <ExploreButton label="Top sources" />
+          <ExploreButton label="Source details" />
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm min-w-[720px]">
@@ -65,4 +82,31 @@ export default async function SourcesPage() {
       </Card>
     </DashboardPage>
   );
+}
+
+function buildSourceChartRows(sources: Awaited<ReturnType<typeof getTrafficSources>>): ReferralSourceBarRow[] {
+  const bySource = new Map<string, number>();
+
+  for (const row of sources) {
+    const source = sourceLabel(row.utm_source, row.referrer_url);
+    bySource.set(source, (bySource.get(source) ?? 0) + row.visitor_count);
+  }
+
+  return Array.from(bySource, ([source, visitors]) => ({ source, visitors }))
+    .sort((a, b) => b.visitors - a.visitors)
+    .slice(0, 8);
+}
+
+function sourceLabel(utmSource: string, referrerUrl: string): string {
+  const source = utmSource?.trim();
+  if (source && source !== "unknown" && source !== "(not set)") {
+    return source.toLowerCase();
+  }
+
+  try {
+    const host = new URL(referrerUrl).hostname.replace(/^www\./, "");
+    return host.split(".")[0] || "direct";
+  } catch {
+    return "direct";
+  }
 }
