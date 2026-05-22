@@ -6,7 +6,7 @@
    ========================================================================== */
 
 import * as React from "react";
-import { CalendarDays, SlidersHorizontal } from "lucide-react";
+import { DashboardToolbarButton } from "@/components/ui/dashboard-actions";
 import { cn } from "@/lib/utils";
 
 export function DashboardPage({
@@ -28,21 +28,9 @@ export function DashboardPage({
         </h1>
         <div className="flex items-center gap-2">
           {period && (
-            <button
-              type="button"
-              className="inline-flex h-8 items-center gap-1.5 rounded-md bg-card px-2.5 text-[13px] font-medium text-foreground shadow-card hover:bg-secondary"
-            >
-              <CalendarDays size={15} strokeWidth={1.75} aria-hidden />
-              <span>{period}</span>
-            </button>
+            <DashboardToolbarButton action="period" label={period} />
           )}
-          <button
-            type="button"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-card px-2.5 text-[13px] font-medium text-foreground shadow-card hover:bg-secondary"
-          >
-            <SlidersHorizontal size={15} strokeWidth={1.75} aria-hidden />
-            <span>Customize</span>
-          </button>
+          <DashboardToolbarButton action="customize" label="Customize" />
         </div>
       </div>
       {children}

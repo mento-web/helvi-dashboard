@@ -40,7 +40,7 @@ export default async function SourcesPage() {
           </div>
           <ExploreButton label="Source details" />
         </CardHeader>
-        <CardContent className="p-0 overflow-x-auto">
+        <CardContent data-dashboard-table className="p-0 overflow-x-auto">
           <table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-border text-left text-[12px] font-medium text-muted-foreground">

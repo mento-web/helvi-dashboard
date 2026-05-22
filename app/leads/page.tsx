@@ -40,7 +40,7 @@ export default async function LeadsPage() {
           </div>
           <ExploreButton label="Recent submissions" />
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent data-dashboard-table className="p-0">
           <LeadsTable rows={rows} />
         </CardContent>
         <PeriodFooter current="Latest 100" />

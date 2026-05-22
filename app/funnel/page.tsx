@@ -103,7 +103,7 @@ export default async function FunnelPage({
           </div>
           <ExploreButton label="Drop-off by step" />
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent data-dashboard-table className="p-0">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-[12px] font-medium text-muted-foreground">

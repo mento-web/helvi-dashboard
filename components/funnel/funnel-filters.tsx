@@ -61,6 +61,7 @@ export function FunnelFilters({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = React.useTransition();
 
   /* ── apply: write zero or more URL params at once, then router.replace ── */
   const apply = (updates: Record<string, string | null>) => {
@@ -70,7 +71,9 @@ export function FunnelFilters({
       else params.set(k, v);
     }
     const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    startTransition(() => {
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    });
   };
 
   const setDateRange = (days: number) => {
@@ -98,18 +101,30 @@ export function FunnelFilters({
     const params = new URLSearchParams();
     params.set("from", d.from);
     params.set("to", d.to);
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    startTransition(() => {
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    });
   };
 
+  const defaults = defaultFunnelFilters();
+  const dateChanged = filters.from !== defaults.from || filters.to !== defaults.to;
   const anyFilterActive = FUNNEL_FILTER_KEYS.some(
     (k) => (filters[k]?.length ?? 0) > 0,
   );
   const demographicActive = DEMO_KEYS.some(
     (k) => (filters[k]?.length ?? 0) > 0,
   );
+  const showReset = dateChanged || anyFilterActive;
+  const activePreset = presetFor(filters.from, filters.to);
 
   return (
-    <div className="rounded-[10px] bg-card p-4 shadow-card flex flex-col gap-3">
+    <div
+      data-dashboard-filters
+      className={cn(
+        "rounded-[10px] bg-card p-4 shadow-card flex flex-col gap-3",
+        isPending && "opacity-80",
+      )}
+    >
       {/* ── Row 1 · date range + presets + reset ────────────────────── */}
       <div className="flex items-center flex-wrap gap-2">
         <span className="text-[12px] font-medium text-muted-foreground w-20 shrink-0">
@@ -119,14 +134,15 @@ export function FunnelFilters({
         <span className="text-muted-foreground text-sm">→</span>
         <DateField value={filters.to} onChange={(v) => setDate("to", v)} />
         <div className="ml-2 flex items-center gap-1">
-          <PresetChip onClick={() => setDateRange(7)}>7d</PresetChip>
-          <PresetChip onClick={() => setDateRange(30)}>30d</PresetChip>
-          <PresetChip onClick={() => setDateRange(90)}>90d</PresetChip>
+          <PresetChip active={activePreset === 7} onClick={() => setDateRange(7)}>7d</PresetChip>
+          <PresetChip active={activePreset === 30} onClick={() => setDateRange(30)}>30d</PresetChip>
+          <PresetChip active={activePreset === 90} onClick={() => setDateRange(90)}>90d</PresetChip>
         </div>
-        {anyFilterActive && (
+        {showReset && (
           <button
+            type="button"
             onClick={resetAll}
-            className="ml-auto h-8 rounded-md px-2.5 text-[13px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="ml-auto h-8 rounded-md px-2.5 text-[13px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/45"
           >
             Reset
           </button>
@@ -170,6 +186,9 @@ export function FunnelFilters({
           </span>
         )}
       </div>
+      <span className="sr-only" aria-live="polite">
+        {isPending ? "Updating funnel filters" : "Funnel filters ready"}
+      </span>
     </div>
   );
 }
@@ -194,17 +213,25 @@ function DateField({
 
 /* ── PresetChip — small button for 7d / 30d / 90d quick-select ──────── */
 function PresetChip({
+  active,
   onClick,
   children,
 }: {
+  active?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
-      className="h-8 rounded-md px-2.5 text-[13px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
+      className={cn(
+        "h-8 rounded-md px-2.5 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/45",
+        active
+          ? "bg-secondary text-foreground shadow-inner"
+          : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+      )}
     >
       {children}
     </button>
@@ -286,12 +313,14 @@ function MultiSelect({
         ref={triggerRef}
         type="button"
         disabled={disabled}
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "h-8 rounded-md border border-transparent px-2.5 text-[13px] font-medium inline-flex items-center gap-1.5 transition-colors",
+          "h-8 rounded-md border border-transparent px-2.5 text-[13px] font-medium inline-flex items-center gap-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/45",
           disabled
             ? "bg-muted/50 text-muted-foreground/40 cursor-not-allowed"
             : "bg-card hover:bg-secondary",
+          open && !disabled && "bg-secondary text-foreground",
           hasValues && !disabled && "text-foreground border-accent/40",
           !hasValues && !disabled && "text-muted-foreground",
           demographic && hasValues && "border-accent/50",
@@ -353,7 +382,7 @@ function MultiSelect({
                   <button
                     type="button"
                     onClick={() => onChange([])}
-                    className="text-[12px] font-medium text-muted-foreground hover:text-foreground mt-2 ml-1.5"
+                    className="rounded px-1 text-[12px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground mt-2 ml-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/45"
                   >
                     Clear
                   </button>
@@ -365,4 +394,16 @@ function MultiSelect({
         )}
     </>
   );
+}
+
+function presetFor(from: string, to: string): 7 | 30 | 90 | null {
+  const fromTime = Date.parse(`${from}T00:00:00.000Z`);
+  const toTime = Date.parse(`${to}T00:00:00.000Z`);
+  if (Number.isNaN(fromTime) || Number.isNaN(toTime)) return null;
+
+  // The query's upper bound is exclusive, so "30d" spans 31 calendar dates:
+  // since today - 30 through tomorrow.
+  const days = Math.round((toTime - fromTime) / 86_400_000) - 1;
+  if (days === 7 || days === 30 || days === 90) return days;
+  return null;
 }

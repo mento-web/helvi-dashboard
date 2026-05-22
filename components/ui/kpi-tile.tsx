@@ -14,7 +14,7 @@
    ========================================================================== */
 
 import * as React from "react";
-import { Search } from "lucide-react";
+import { DashboardExploreButton } from "@/components/ui/dashboard-actions";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -44,20 +44,13 @@ export function KpiTile({ label, value, delta, hint, comparisonHint, sparkline, 
   const negative = hasDelta && delta! < 0;
 
   return (
-    <div className={cn("rounded-[10px] bg-card shadow-card p-5 flex flex-col", className)}>
+    <div data-dashboard-card className={cn("rounded-[10px] bg-card shadow-card p-5 flex flex-col", className)}>
       {/* === Label === */}
       <div className="flex items-start justify-between gap-3">
         <div className="text-[13px] font-medium text-muted-foreground tooltip-label">
           {label}
         </div>
-        <button
-          type="button"
-          aria-label={`Explore ${label}`}
-          title={`Explore ${label}`}
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        >
-          <Search size={15} strokeWidth={1.75} aria-hidden />
-        </button>
+        <DashboardExploreButton label={label} />
       </div>
 
       {/* === Metric + delta === */}

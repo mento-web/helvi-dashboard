@@ -13,12 +13,13 @@
    ========================================================================== */
 
 import * as React from "react";
-import { Search } from "lucide-react";
+import { DashboardExploreButton } from "@/components/ui/dashboard-actions";
 import { cn } from "@/lib/utils";
 
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
+      data-dashboard-card
       className={cn(
         "rounded-[10px] bg-card text-card-foreground shadow-card",
         className,
@@ -83,20 +84,7 @@ export function ExploreButton({
   label: string;
   className?: string;
 }) {
-  return (
-    <button
-      type="button"
-      aria-label={`Explore ${label}`}
-      title={`Explore ${label}`}
-      className={cn(
-        "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
-        "text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
-        className,
-      )}
-    >
-      <Search size={15} strokeWidth={1.75} aria-hidden />
-    </button>
-  );
+  return <DashboardExploreButton label={label} className={className} />;
 }
 
 export function PeriodFooter({
