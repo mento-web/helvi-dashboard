@@ -1,31 +1,55 @@
 /* ============================================================================
-   app/funnel/page.tsx — Detailed funnel view.
+   app/funnel/page.tsx — Sliceable acquisition funnel.
 
-   Reads the funnel_conversion view (per-visitor max step reached) and
-   shows:
-     - Step-by-step "reached" count (waterfall of survivors).
-     - Per-step drop-off percentage as a table.
+   Filters live in the URL search params (date range + UTM/device/landing
+   + gender/eligibility/BMI band). This server component:
+     1. awaits searchParams (Next 16 contract — it's a Promise)
+     2. parses it into a typed FunnelFilters
+     3. fetches the filtered conversion + the option universe in parallel
+     4. renders the filter bar (client) above the funnel viz (server)
+
+   The drop-off-per-step table at the bottom is unchanged: it's the
+   precise numeric reference accompanying the visual funnel.
    ========================================================================== */
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { FunnelHorizontal, type FunnelHorizontalRow } from "@/components/funnel/funnel-horizontal";
-import { getFunnelConversion } from "@/lib/queries/funnel";
+import { FunnelFilters } from "@/components/funnel/funnel-filters";
+import {
+  getFunnelConversionFiltered,
+  getFunnelFilterOptions,
+  parseFunnelSearchParams,
+} from "@/lib/queries/funnel";
 import { formatInt, formatPct } from "@/lib/utils";
 
-export default async function FunnelPage() {
-  const conversion = await getFunnelConversion(30);
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export default async function FunnelPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  // Next 16: searchParams is a Promise. Await it before parsing.
+  const spResolved = await searchParams;
+  const filters = parseFunnelSearchParams(spResolved);
+
+  // Both queries hit the same view; running them in parallel saves a
+  // round-trip's worth of latency without much code cost.
+  const [conversion, options] = await Promise.all([
+    getFunnelConversionFiltered(filters),
+    getFunnelFilterOptions(filters.from, filters.to),
+  ]);
 
   // Anchor for "% of visited" — first canonical step is page_viewed = Visited.
-  // Guard against zero so we don't divide-by-zero on a fresh / empty tenant.
   const visited = conversion[0]?.reached ?? 0;
 
-  // Build the funnel rows: each step carries its share of the Visited
-  // anchor (100% at the top) and the drop-off from the immediately
-  // preceding step (null on the first row).
+  // Build the funnel rows: each step's share of Visited (= 100% at top) plus
+  // the drop-off from the previous step. First row's drop is null.
   const funnelRows: FunnelHorizontalRow[] = conversion.map((c, i) => {
     const prev = i > 0 ? conversion[i - 1] : null;
     const dropCount = prev ? prev.reached - c.reached : null;
-    const dropPct = prev && prev.reached > 0 ? (dropCount! / prev.reached) * 100 : null;
+    const dropPct =
+      prev && prev.reached > 0 ? (dropCount! / prev.reached) * 100 : null;
     return {
       label: c.label,
       reached: c.reached,
@@ -55,10 +79,14 @@ export default async function FunnelPage() {
         <div className="font-mono text-xs text-muted-foreground">/funnel</div>
         <h1 className="text-base font-medium tracking-tight">Acquisition funnel</h1>
         <p className="text-xs text-muted-foreground max-w-3xl pt-1">
-          Per-visitor furthest-step reached over the last 30 days. Each bar is sized as a share
-          of Visited (= 100%); the last bar, Booked, is the overall conversion rate.
+          Per-visitor furthest-step reached. Each bar is sized as a share of Visited (= 100%);
+          the last bar, Booked, is the overall conversion rate. Slice with the filters below —
+          state lives in the URL so the view is shareable.
         </p>
       </div>
+
+      {/* === Filters — client component, writes to URL searchParams === */}
+      <FunnelFilters filters={filters} options={options} />
 
       <Card>
         <CardHeader>
