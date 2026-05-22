@@ -22,6 +22,7 @@
    ========================================================================== */
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { cn, formatInt } from "@/lib/utils";
 
@@ -404,8 +405,10 @@ export function LeadsTable({ rows }: { rows: LeadRow[] }) {
 
 /* ── ColumnHeader ──────────────────────────────────────────────────────
    Renders one <th>. The header text is the dropdown trigger. Children
-   render inside the popover when open. Owns the popover positioning,
-   outside-click detection, and the trigger button styling.
+   render inside the popover when open. The popover is portalled into
+   document.body and positioned with position:fixed off the trigger's
+   bounding rect, so it can escape every overflow:auto / overflow:hidden
+   ancestor (the table's overflow-x-auto wrapper and the Card).
    ──────────────────────────────────────────────────────────────────── */
 
 function ColumnHeader({
@@ -431,14 +434,49 @@ function ColumnHeader({
   align?: "right";
   children: React.ReactNode;
 }) {
-  const ref = React.useRef<HTMLTableCellElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const popoverRef = React.useRef<HTMLDivElement>(null);
+  const [pos, setPos] = React.useState<{ top: number; left?: number; right?: number } | null>(null);
   const isSorted = sortKey === k;
 
-  /* ── Outside click + Escape close ─────────────────────────────── */
+  /* ── Position the portalled popover off the trigger's rect.
+        Recomputed on open, scroll, and resize so it stays anchored. ── */
+  React.useLayoutEffect(() => {
+    if (!isOpen) {
+      setPos(null);
+      return;
+    }
+    const compute = () => {
+      const el = triggerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const top = rect.bottom + 4;
+      if (align === "right") {
+        setPos({ top, right: Math.max(0, window.innerWidth - rect.right) });
+      } else {
+        setPos({ top, left: rect.left });
+      }
+    };
+    compute();
+    // capture=true so we catch scrolls inside any ancestor scroll container too
+    window.addEventListener("scroll", compute, true);
+    window.addEventListener("resize", compute);
+    return () => {
+      window.removeEventListener("scroll", compute, true);
+      window.removeEventListener("resize", compute);
+    };
+  }, [isOpen, align]);
+
+  /* ── Outside click + Escape close. Because the popover is portalled
+        out of the <th>, we have to whitelist both the trigger and the
+        popover when deciding what counts as "outside". ─────────────── */
   React.useEffect(() => {
     if (!isOpen) return;
     const handleMouseDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t)) return;
+      if (popoverRef.current?.contains(t)) return;
+      onClose();
     };
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -453,13 +491,13 @@ function ColumnHeader({
 
   return (
     <th
-      ref={ref}
       className={cn(
-        "relative px-4 py-2 font-mono text-[11px] uppercase tracking-wider font-medium",
+        "px-4 py-2 font-mono text-[11px] uppercase tracking-wider font-medium",
         align === "right" ? "text-right" : "text-left",
       )}
     >
       <button
+        ref={triggerRef}
         type="button"
         onClick={onOpenToggle}
         className={cn(
@@ -476,17 +514,25 @@ function ColumnHeader({
         {filtered && <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-accent" />}
       </button>
 
-      {isOpen && (
-        <div
-          className={cn(
-            "absolute z-20 mt-1 min-w-[200px] bg-card border border-border rounded-md shadow-md p-2",
-            "text-foreground normal-case tracking-normal",  // reset the th's uppercase styling inside the popover
-            align === "right" ? "right-2" : "left-2",
-          )}
-        >
-          {children}
-        </div>
-      )}
+      {isOpen && pos && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            style={{
+              position: "fixed",
+              top: pos.top,
+              left: pos.left,
+              right: pos.right,
+            }}
+            className={cn(
+              "z-50 min-w-[200px] bg-card border border-border rounded-md shadow-md p-2",
+              "text-foreground normal-case tracking-normal text-left",
+            )}
+          >
+            {children}
+          </div>,
+          document.body,
+        )}
     </th>
   );
 }
