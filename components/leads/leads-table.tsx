@@ -1,25 +1,31 @@
 "use client";
 
 /* ============================================================================
-   leads/leads-table.tsx — interactive leads table.
+   leads/leads-table.tsx — Excel-style interactive leads table.
 
-   Inputs: the full set of leads from the server component.
-   Owns: search text, per-column filter chips (eligibility / gender / status),
-         sort key + direction, CSV export of the currently-visible rows.
+   Each column header is a dropdown trigger. Clicking opens a popover
+   beneath the header with:
+     - Sort options (asc / desc, with labels appropriate to the column type)
+     - A column-appropriate filter:
+         · text columns        → "contains" input (email, source)
+         · categorical columns → checkbox list (gender, eligibility, status)
+         · date / numeric      → sort only, no filter in v1
 
-   All filtering happens client-side over the rows the server already
-   fetched. With a 100-row cap on the source query, that's a few KB of
-   payload — well under any meaningful threshold. If the dataset grows
-   past a few thousand rows, push filters back to the server via search
-   params and refactor.
+   Top-right corner of the card has a small strip with the visible / total
+   row count, a "clear" link when any filter is active, and the CSV
+   download button. No left-side filter chip toolbar — all filter UI is
+   contextual to the column.
+
+   All filtering + sorting happens client-side over the rows the server
+   already fetched (currently capped at 100). Push to URL search params if
+   the dataset grows past a few thousand rows.
    ========================================================================== */
 
 import * as React from "react";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { cn, formatInt } from "@/lib/utils";
 
-/* ── Row shape ── repeats the server-side type so this file is import-
-   independent from the queries layer. */
+/* ── Row shape ─────────────────────────────────────────────────────────── */
 export type LeadRow = {
   lead_id: string;
   created_at: string;
@@ -32,8 +38,32 @@ export type LeadRow = {
   utm_medium: string | null;
 };
 
-type SortKey = "created_at" | "email" | "gender" | "eligibility" | "bmi" | "status" | "source";
+type ColumnKey =
+  | "created_at"
+  | "email"
+  | "gender"
+  | "eligibility"
+  | "bmi"
+  | "status"
+  | "source";
+
 type SortDir = "asc" | "desc";
+
+type Filters = {
+  email_contains: string;
+  source_contains: string;
+  genders: Set<LeadRow["gender"]>;
+  eligibilities: Set<LeadRow["eligibility"]>;
+  statuses: Set<"booked" | "lead">;
+};
+
+const EMPTY_FILTERS: Filters = {
+  email_contains: "",
+  source_contains: "",
+  genders: new Set(),
+  eligibilities: new Set(),
+  statuses: new Set(),
+};
 
 const ELIGIBILITY_VARIANT: Record<LeadRow["eligibility"], BadgeVariant> = {
   eligible:   "eligible",
@@ -41,8 +71,8 @@ const ELIGIBILITY_VARIANT: Record<LeadRow["eligibility"], BadgeVariant> = {
   "low-bmi":  "low-bmi",
 };
 
-/* ── ISO-style date formatter — same shape as the previous server-side
-   formatter so the user-facing column doesn't change. */
+/* ── Helpers ──────────────────────────────────────────────────────────── */
+
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -50,56 +80,81 @@ function fmtDate(iso: string | null): string {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
 
-/* ── status derivation ──── booked iff Cal.com confirmation timestamp set. */
 function statusOf(r: LeadRow): "booked" | "lead" {
   return r.booking_confirmed_at !== null ? "booked" : "lead";
 }
 
-/* ── Per-key sort value extractor ──────────────────────────────────────── */
-function sortValue(r: LeadRow, key: SortKey): string | number {
+function sortValue(r: LeadRow, key: ColumnKey): string | number {
   switch (key) {
-    case "created_at":   return r.created_at;                  // ISO string sorts lex == chrono
-    case "email":        return r.email.toLowerCase();
-    case "gender":       return r.gender;
-    case "eligibility":  return r.eligibility;
-    case "bmi":          return r.bmi ?? -Infinity;            // unknown BMI sorts last on asc
-    case "status":       return statusOf(r);
-    case "source":       return (r.utm_source ?? "(direct)").toLowerCase();
+    case "created_at":  return r.created_at;
+    case "email":       return r.email.toLowerCase();
+    case "gender":      return r.gender;
+    case "eligibility": return r.eligibility;
+    case "bmi":         return r.bmi ?? -Infinity;
+    case "status":      return statusOf(r);
+    case "source":      return (r.utm_source ?? "(direct)").toLowerCase();
   }
 }
 
-/* ── CSV escaping ── RFC 4180 minimum: quote if it contains ',' / '"' / '\n',
-   double up any existing '"' inside the value. */
 function csvCell(value: string | number | null | undefined): string {
   const s = value === null || value === undefined ? "" : String(value);
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
 
-export function LeadsTable({ rows }: { rows: LeadRow[] }) {
-  /* ── Filter + sort state ────────────────────────────────────────────── */
-  const [search, setSearch] = React.useState("");
-  const [eligibilityFilter, setEligibilityFilter] = React.useState<Set<LeadRow["eligibility"]>>(new Set());
-  const [genderFilter, setGenderFilter]           = React.useState<Set<LeadRow["gender"]>>(new Set());
-  const [statusFilter, setStatusFilter]           = React.useState<Set<"booked" | "lead">>(new Set());
-  const [sortKey, setSortKey] = React.useState<SortKey>("created_at");
-  const [sortDir, setSortDir] = React.useState<SortDir>("desc");
+/* ── Per-column ascending / descending sort labels ──────────────────── */
+function sortLabels(key: ColumnKey): { asc: string; desc: string } {
+  switch (key) {
+    case "created_at":  return { asc: "oldest first",    desc: "newest first" };
+    case "bmi":         return { asc: "low → high",      desc: "high → low" };
+    case "email":
+    case "gender":
+    case "eligibility":
+    case "status":
+    case "source":
+    default:            return { asc: "A → Z",           desc: "Z → A" };
+  }
+}
 
-  /* ── Visible rows = rows passed through every active filter, then sorted. */
+/* ── Check if a column has an active filter ──────────────────────────── */
+function isColumnFiltered(key: ColumnKey, f: Filters): boolean {
+  switch (key) {
+    case "email":       return f.email_contains.trim() !== "";
+    case "source":      return f.source_contains.trim() !== "";
+    case "gender":      return f.genders.size > 0;
+    case "eligibility": return f.eligibilities.size > 0;
+    case "status":      return f.statuses.size > 0;
+    default:            return false;
+  }
+}
+
+/* ── Main component ──────────────────────────────────────────────────── */
+
+export function LeadsTable({ rows }: { rows: LeadRow[] }) {
+  const [sortKey, setSortKey] = React.useState<ColumnKey>("created_at");
+  const [sortDir, setSortDir] = React.useState<SortDir>("desc");
+  const [filters, setFilters] = React.useState<Filters>(EMPTY_FILTERS);
+  const [openColumn, setOpenColumn] = React.useState<ColumnKey | null>(null);
+
+  /* ── Visible rows = filtered → sorted ─────────────────────────────── */
   const visible = React.useMemo(() => {
     let out = rows;
 
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      out = out.filter((r) =>
-        r.email.toLowerCase().includes(q) ||
-        (r.utm_source ?? "").toLowerCase().includes(q) ||
-        (r.utm_medium ?? "").toLowerCase().includes(q),
-      );
+    if (filters.email_contains.trim()) {
+      const q = filters.email_contains.trim().toLowerCase();
+      out = out.filter((r) => r.email.toLowerCase().includes(q));
     }
-    if (eligibilityFilter.size) out = out.filter((r) => eligibilityFilter.has(r.eligibility));
-    if (genderFilter.size)      out = out.filter((r) => genderFilter.has(r.gender));
-    if (statusFilter.size)      out = out.filter((r) => statusFilter.has(statusOf(r)));
+    if (filters.source_contains.trim()) {
+      const q = filters.source_contains.trim().toLowerCase();
+      out = out.filter((r) => {
+        const s = r.utm_source ?? "(direct)";
+        const m = r.utm_medium ?? "";
+        return s.toLowerCase().includes(q) || m.toLowerCase().includes(q);
+      });
+    }
+    if (filters.genders.size) out = out.filter((r) => filters.genders.has(r.gender));
+    if (filters.eligibilities.size) out = out.filter((r) => filters.eligibilities.has(r.eligibility));
+    if (filters.statuses.size) out = out.filter((r) => filters.statuses.has(statusOf(r)));
 
     return [...out].sort((a, b) => {
       const av = sortValue(a, sortKey);
@@ -107,19 +162,25 @@ export function LeadsTable({ rows }: { rows: LeadRow[] }) {
       const cmp = av < bv ? -1 : av > bv ? 1 : 0;
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [rows, search, eligibilityFilter, genderFilter, statusFilter, sortKey, sortDir]);
+  }, [rows, filters, sortKey, sortDir]);
 
-  /* ── Header click toggles direction if same key, else switches key. */
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir(key === "created_at" || key === "bmi" ? "desc" : "asc");
-    }
+  const anyFilterActive =
+    filters.email_contains.trim() !== "" ||
+    filters.source_contains.trim() !== "" ||
+    filters.genders.size > 0 ||
+    filters.eligibilities.size > 0 ||
+    filters.statuses.size > 0;
+
+  const clearAll = () => setFilters(EMPTY_FILTERS);
+
+  /* ── Sort handler: setting from inside a popover also closes it ───── */
+  const applySort = (key: ColumnKey, dir: SortDir) => {
+    setSortKey(key);
+    setSortDir(dir);
+    setOpenColumn(null);
   };
 
-  /* ── CSV export of the *currently visible* set ─────────────────────── */
+  /* ── CSV export of currently visible rows ─────────────────────────── */
   const downloadCsv = () => {
     const headers = [
       "created_at_iso",
@@ -165,97 +226,141 @@ export function LeadsTable({ rows }: { rows: LeadRow[] }) {
     URL.revokeObjectURL(url);
   };
 
-  const anyFilterActive =
-    search.trim() !== "" ||
-    eligibilityFilter.size > 0 ||
-    genderFilter.size > 0 ||
-    statusFilter.size > 0;
-
-  const clearAll = () => {
-    setSearch("");
-    setEligibilityFilter(new Set());
-    setGenderFilter(new Set());
-    setStatusFilter(new Set());
-  };
-
   return (
     <>
-      {/* === Toolbar === */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-wrap">
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="search email / source"
-          className="font-mono text-xs px-2.5 py-1.5 border border-border rounded-md bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground min-w-[180px]"
-        />
-
-        <FilterGroup label="elig">
-          {(["eligible", "borderline", "low-bmi"] as const).map((v) => (
-            <Chip
-              key={v}
-              label={v}
-              active={eligibilityFilter.has(v)}
-              onClick={() => toggleSet(setEligibilityFilter, v)}
-            />
-          ))}
-        </FilterGroup>
-
-        <FilterGroup label="gender">
-          {(["women", "men"] as const).map((v) => (
-            <Chip
-              key={v}
-              label={v}
-              active={genderFilter.has(v)}
-              onClick={() => toggleSet(setGenderFilter, v)}
-            />
-          ))}
-        </FilterGroup>
-
-        <FilterGroup label="status">
-          {(["booked", "lead"] as const).map((v) => (
-            <Chip
-              key={v}
-              label={v}
-              active={statusFilter.has(v)}
-              onClick={() => toggleSet(setStatusFilter, v)}
-            />
-          ))}
-        </FilterGroup>
-
-        <div className="ml-auto flex items-center gap-3">
-          <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-            {formatInt(visible.length)} / {formatInt(rows.length)}
-          </span>
-          {anyFilterActive && (
-            <button
-              onClick={clearAll}
-              className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
-            >
-              clear
-            </button>
-          )}
+      {/* === Strip: row count + clear + CSV === */}
+      <div className="flex items-center justify-end gap-3 px-4 py-2 border-b border-border">
+        <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+          {formatInt(visible.length)} / {formatInt(rows.length)}
+        </span>
+        {anyFilterActive && (
           <button
-            onClick={downloadCsv}
-            className="font-mono text-[11px] uppercase tracking-wider px-2.5 py-1.5 border border-border rounded-md bg-card hover:bg-muted text-foreground"
+            onClick={clearAll}
+            className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
           >
-            ↓ csv
+            clear filters
           </button>
-        </div>
+        )}
+        <button
+          onClick={downloadCsv}
+          className="font-mono text-[11px] uppercase tracking-wider px-2.5 py-1 border border-border rounded-md bg-card hover:bg-muted text-foreground"
+        >
+          ↓ csv
+        </button>
       </div>
 
       {/* === Table === */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-[860px]">
           <thead>
-            <tr className="text-left border-b border-border">
-              <Th k="created_at"  sortKey={sortKey} sortDir={sortDir} onSort={handleSort}>created_at</Th>
-              <Th k="email"       sortKey={sortKey} sortDir={sortDir} onSort={handleSort}>email</Th>
-              <Th k="gender"      sortKey={sortKey} sortDir={sortDir} onSort={handleSort}>gender</Th>
-              <Th k="eligibility" sortKey={sortKey} sortDir={sortDir} onSort={handleSort}>eligibility</Th>
-              <Th k="bmi"         sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="right">bmi</Th>
-              <Th k="status"      sortKey={sortKey} sortDir={sortDir} onSort={handleSort}>status</Th>
-              <Th k="source"      sortKey={sortKey} sortDir={sortDir} onSort={handleSort}>source</Th>
+            <tr className="border-b border-border">
+              <ColumnHeader
+                k="created_at" label="created_at"
+                sortKey={sortKey} sortDir={sortDir}
+                filtered={isColumnFiltered("created_at", filters)}
+                isOpen={openColumn === "created_at"}
+                onOpenToggle={() => setOpenColumn((o) => (o === "created_at" ? null : "created_at"))}
+                onClose={() => setOpenColumn(null)}
+              >
+                <SortPanel k="created_at" sortKey={sortKey} sortDir={sortDir} applySort={applySort} />
+              </ColumnHeader>
+
+              <ColumnHeader
+                k="email" label="email"
+                sortKey={sortKey} sortDir={sortDir}
+                filtered={isColumnFiltered("email", filters)}
+                isOpen={openColumn === "email"}
+                onOpenToggle={() => setOpenColumn((o) => (o === "email" ? null : "email"))}
+                onClose={() => setOpenColumn(null)}
+              >
+                <SortPanel k="email" sortKey={sortKey} sortDir={sortDir} applySort={applySort} />
+                <TextFilterPanel
+                  label="contains"
+                  value={filters.email_contains}
+                  onChange={(v) => setFilters((f) => ({ ...f, email_contains: v }))}
+                />
+              </ColumnHeader>
+
+              <ColumnHeader
+                k="gender" label="gender"
+                sortKey={sortKey} sortDir={sortDir}
+                filtered={isColumnFiltered("gender", filters)}
+                isOpen={openColumn === "gender"}
+                onOpenToggle={() => setOpenColumn((o) => (o === "gender" ? null : "gender"))}
+                onClose={() => setOpenColumn(null)}
+              >
+                <SortPanel k="gender" sortKey={sortKey} sortDir={sortDir} applySort={applySort} />
+                <CheckboxFilterPanel
+                  options={["women", "men"]}
+                  selected={filters.genders}
+                  onToggle={(v) =>
+                    setFilters((f) => ({ ...f, genders: toggleSetValue(f.genders, v) }))
+                  }
+                />
+              </ColumnHeader>
+
+              <ColumnHeader
+                k="eligibility" label="eligibility"
+                sortKey={sortKey} sortDir={sortDir}
+                filtered={isColumnFiltered("eligibility", filters)}
+                isOpen={openColumn === "eligibility"}
+                onOpenToggle={() => setOpenColumn((o) => (o === "eligibility" ? null : "eligibility"))}
+                onClose={() => setOpenColumn(null)}
+              >
+                <SortPanel k="eligibility" sortKey={sortKey} sortDir={sortDir} applySort={applySort} />
+                <CheckboxFilterPanel
+                  options={["eligible", "borderline", "low-bmi"]}
+                  selected={filters.eligibilities}
+                  onToggle={(v) =>
+                    setFilters((f) => ({ ...f, eligibilities: toggleSetValue(f.eligibilities, v) }))
+                  }
+                />
+              </ColumnHeader>
+
+              <ColumnHeader
+                k="bmi" label="bmi" align="right"
+                sortKey={sortKey} sortDir={sortDir}
+                filtered={isColumnFiltered("bmi", filters)}
+                isOpen={openColumn === "bmi"}
+                onOpenToggle={() => setOpenColumn((o) => (o === "bmi" ? null : "bmi"))}
+                onClose={() => setOpenColumn(null)}
+              >
+                <SortPanel k="bmi" sortKey={sortKey} sortDir={sortDir} applySort={applySort} />
+              </ColumnHeader>
+
+              <ColumnHeader
+                k="status" label="status"
+                sortKey={sortKey} sortDir={sortDir}
+                filtered={isColumnFiltered("status", filters)}
+                isOpen={openColumn === "status"}
+                onOpenToggle={() => setOpenColumn((o) => (o === "status" ? null : "status"))}
+                onClose={() => setOpenColumn(null)}
+              >
+                <SortPanel k="status" sortKey={sortKey} sortDir={sortDir} applySort={applySort} />
+                <CheckboxFilterPanel
+                  options={["booked", "lead"]}
+                  selected={filters.statuses}
+                  onToggle={(v) =>
+                    setFilters((f) => ({ ...f, statuses: toggleSetValue(f.statuses, v) }))
+                  }
+                />
+              </ColumnHeader>
+
+              <ColumnHeader
+                k="source" label="source"
+                sortKey={sortKey} sortDir={sortDir}
+                filtered={isColumnFiltered("source", filters)}
+                isOpen={openColumn === "source"}
+                onOpenToggle={() => setOpenColumn((o) => (o === "source" ? null : "source"))}
+                onClose={() => setOpenColumn(null)}
+              >
+                <SortPanel k="source" sortKey={sortKey} sortDir={sortDir} applySort={applySort} />
+                <TextFilterPanel
+                  label="contains"
+                  value={filters.source_contains}
+                  onChange={(v) => setFilters((f) => ({ ...f, source_contains: v }))}
+                />
+              </ColumnHeader>
             </tr>
           </thead>
           <tbody>
@@ -297,80 +402,236 @@ export function LeadsTable({ rows }: { rows: LeadRow[] }) {
   );
 }
 
-/* ── Small helpers ─────────────────────────────────────────────────────── */
+/* ── ColumnHeader ──────────────────────────────────────────────────────
+   Renders one <th>. The header text is the dropdown trigger. Children
+   render inside the popover when open. Owns the popover positioning,
+   outside-click detection, and the trigger button styling.
+   ──────────────────────────────────────────────────────────────────── */
 
-function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+function ColumnHeader({
+  k,
+  label,
+  sortKey,
+  sortDir,
+  filtered,
+  isOpen,
+  onOpenToggle,
+  onClose,
+  align,
+  children,
+}: {
+  k: ColumnKey;
+  label: string;
+  sortKey: ColumnKey;
+  sortDir: SortDir;
+  filtered: boolean;
+  isOpen: boolean;
+  onOpenToggle: () => void;
+  onClose: () => void;
+  align?: "right";
+  children: React.ReactNode;
+}) {
+  const ref = React.useRef<HTMLTableCellElement>(null);
+  const isSorted = sortKey === k;
+
+  /* ── Outside click + Escape close ─────────────────────────────── */
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleMouseDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [isOpen, onClose]);
+
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-1">{children}</div>
+    <th
+      ref={ref}
+      className={cn(
+        "relative px-4 py-2 font-mono text-[11px] uppercase tracking-wider font-medium",
+        align === "right" ? "text-right" : "text-left",
+      )}
+    >
+      <button
+        type="button"
+        onClick={onOpenToggle}
+        className={cn(
+          "inline-flex items-center gap-1.5 select-none transition-colors",
+          isSorted || filtered ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        <span>{label}</span>
+        {/* Sort indicator (arrow if sorted on this column, dim chevron otherwise) */}
+        <span className={cn(isSorted ? "text-foreground" : "opacity-40")}>
+          {isSorted ? (sortDir === "asc" ? "↑" : "↓") : "▾"}
+        </span>
+        {/* Filter dot — small filled circle when this column has a filter */}
+        {filtered && <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-accent" />}
+      </button>
+
+      {isOpen && (
+        <div
+          className={cn(
+            "absolute z-20 mt-1 min-w-[200px] bg-card border border-border rounded-md shadow-md p-2",
+            "text-foreground normal-case tracking-normal",  // reset the th's uppercase styling inside the popover
+            align === "right" ? "right-2" : "left-2",
+          )}
+        >
+          {children}
+        </div>
+      )}
+    </th>
+  );
+}
+
+/* ── SortPanel — the always-on top section of every popover ────────── */
+function SortPanel({
+  k,
+  sortKey,
+  sortDir,
+  applySort,
+}: {
+  k: ColumnKey;
+  sortKey: ColumnKey;
+  sortDir: SortDir;
+  applySort: (k: ColumnKey, dir: SortDir) => void;
+}) {
+  const labels = sortLabels(k);
+  const active = sortKey === k;
+  return (
+    <div className="space-y-0.5 pb-2 mb-2 border-b border-border">
+      <PopoverButton
+        active={active && sortDir === "asc"}
+        onClick={() => applySort(k, "asc")}
+      >
+        <span className="opacity-60">↑</span>
+        <span>{labels.asc}</span>
+      </PopoverButton>
+      <PopoverButton
+        active={active && sortDir === "desc"}
+        onClick={() => applySort(k, "desc")}
+      >
+        <span className="opacity-60">↓</span>
+        <span>{labels.desc}</span>
+      </PopoverButton>
     </div>
   );
 }
 
-function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+/* ── TextFilterPanel — for email + source ────────────────────────── */
+function TextFilterPanel({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoFocus
+        className="w-full font-mono text-xs px-2 py-1.5 border border-border rounded-md bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
+      />
+      {value && (
+        <button
+          onClick={() => onChange("")}
+          className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+        >
+          clear
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ── CheckboxFilterPanel — for categorical columns ─────────────────── */
+function CheckboxFilterPanel<T extends string>({
+  options,
+  selected,
+  onToggle,
+}: {
+  options: ReadonlyArray<T>;
+  selected: Set<T>;
+  onToggle: (v: T) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      {options.map((opt) => {
+        const checked = selected.has(opt);
+        return (
+          <label
+            key={opt}
+            className="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-muted cursor-pointer"
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => onToggle(opt)}
+              className="h-3.5 w-3.5 accent-foreground cursor-pointer"
+            />
+            <span className="font-mono text-xs">{opt}</span>
+          </label>
+        );
+      })}
+      {selected.size > 0 && (
+        <button
+          onClick={() => {
+            // Clear all by toggling each selected back off. Caller's setter
+            // is keyed off each toggle, so this stays consistent.
+            selected.forEach((v) => onToggle(v));
+          }}
+          className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground mt-1 ml-1.5"
+        >
+          clear
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ── PopoverButton — shared row style for sort + filter rows ──────── */
+function PopoverButton({
+  active,
+  onClick,
+  children,
+}: {
+  active?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "font-mono text-[11px] px-2 py-0.5 rounded-md border transition-colors",
-        active
-          ? "border-foreground bg-foreground text-background"
-          : "border-border bg-card text-muted-foreground hover:text-foreground",
+        "w-full flex items-center gap-2 px-1.5 py-1 rounded font-mono text-xs hover:bg-muted",
+        active ? "text-foreground" : "text-muted-foreground",
       )}
     >
-      {label}
+      {children}
     </button>
   );
 }
 
-function Th<K extends SortKey>({
-  k,
-  sortKey,
-  sortDir,
-  onSort,
-  align,
-  children,
-}: {
-  k: K;
-  sortKey: SortKey;
-  sortDir: SortDir;
-  onSort: (k: SortKey) => void;
-  align?: "right";
-  children: React.ReactNode;
-}) {
-  const active = sortKey === k;
-  return (
-    <th
-      className={cn(
-        "px-4 py-2 font-mono text-[11px] uppercase tracking-wider font-medium",
-        align === "right" ? "text-right" : "",
-      )}
-    >
-      <button
-        type="button"
-        onClick={() => onSort(k)}
-        className={cn(
-          "inline-flex items-center gap-1 select-none transition-colors",
-          active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <span>{children}</span>
-        <span className={cn("text-foreground", !active && "opacity-30")}>
-          {active ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
-        </span>
-      </button>
-    </th>
-  );
-}
-
-/* ── Set toggle helper used by every filter chip ──────────────────────── */
-function toggleSet<T>(setState: React.Dispatch<React.SetStateAction<Set<T>>>, value: T) {
-  setState((prev) => {
-    const next = new Set(prev);
-    if (next.has(value)) next.delete(value);
-    else next.add(value);
-    return next;
-  });
+/* ── Immutable Set toggle — returns a NEW Set so React sees a state change ── */
+function toggleSetValue<T>(prev: Set<T>, value: T): Set<T> {
+  const next = new Set(prev);
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+  return next;
 }

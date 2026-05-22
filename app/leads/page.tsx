@@ -36,7 +36,7 @@ export default async function LeadsPage() {
         <h1 className="text-base font-medium tracking-tight">Recent submissions</h1>
         <p className="text-xs text-muted-foreground max-w-3xl pt-1">
           {formatInt(rows.length)} most recent leads, newest first. Booked = confirmed Cal.com slot.
-          Filter, sort, and download as CSV from the toolbar.
+          Click any column header to sort or filter. Download visible rows as CSV from the top right.
         </p>
       </div>
 
