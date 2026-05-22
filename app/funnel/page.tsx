@@ -8,7 +8,7 @@
    ========================================================================== */
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { FunnelVisual, type FunnelVisualRow } from "@/components/funnel/funnel-visual";
+import { FunnelHorizontal, type FunnelHorizontalRow } from "@/components/funnel/funnel-horizontal";
 import { getFunnelConversion } from "@/lib/queries/funnel";
 import { formatInt, formatPct } from "@/lib/utils";
 
@@ -22,7 +22,7 @@ export default async function FunnelPage() {
   // Build the funnel rows: each step carries its share of the Visited
   // anchor (100% at the top) and the drop-off from the immediately
   // preceding step (null on the first row).
-  const funnelRows: FunnelVisualRow[] = conversion.map((c, i) => {
+  const funnelRows: FunnelHorizontalRow[] = conversion.map((c, i) => {
     const prev = i > 0 ? conversion[i - 1] : null;
     const dropCount = prev ? prev.reached - c.reached : null;
     const dropPct = prev && prev.reached > 0 ? (dropCount! / prev.reached) * 100 : null;
@@ -68,7 +68,7 @@ export default async function FunnelPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="pb-4">
-          <FunnelVisual rows={funnelRows} />
+          <FunnelHorizontal rows={funnelRows} />
         </CardContent>
       </Card>
 
