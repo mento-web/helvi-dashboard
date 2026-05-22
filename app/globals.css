@@ -3,27 +3,20 @@
 /* ============================================================================
    helvi-dashboard design tokens
    --------------------------------------------------------------------------
-   Tokens are ported from the Helvi landing page (web-scribe-magic-34) so
-   the dashboard reads as the same product. The Helvi repo stores tokens as
-   raw HSL components inside :root and aliases them in tailwind.config.ts.
-   Tailwind 4 uses CSS-first config via @theme — so we declare each token
-   as a full color value directly under @theme. No tailwind.config.* file
-   needed in this project.
+   Aesthetic: "ops console", not consumer landing page. Mono headers, dense
+   spacing, sharp corners, restrained color. Same Helvi palette as the
+   landing page so brand carries, but the dashboard reads as a tool.
 
    Two layers:
-     1. @theme  → Tailwind generates utility classes (bg-accent, text-muted-
-                  foreground, etc.) from these tokens.
+     1. @theme  → Tailwind generates utility classes from these tokens.
      2. :root   → Raw HSL components for inline style={{ ... }} usage
-                  (the same hsl(var(--tint-X)) pattern Helvi uses on its
-                  pastel section cards).
+                  (the same hsl(var(--tint-X)) pattern Helvi uses).
    ========================================================================== */
 
 @theme {
-  /* ── Fonts ──────────────────────────────────────────────────────────────
-     Loaded as next/font CSS variables in app/layout.tsx. The variable
-     names are pinned there as well so the two stay in sync. */
+  /* ── Fonts — DM Sans for body, JetBrains Mono for headers, labels, numbers ── */
   --font-sans: var(--font-dm-sans), "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-instrument-serif), "Instrument Serif", Georgia, serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, monospace;
 
   /* ── Surface + text ───────────────────────────────────────────────────── */
   --color-background: hsl(0 0% 100%);
@@ -60,7 +53,7 @@
   --color-input: hsl(0 0% 90%);
   --color-ring: hsl(0 0% 7%);
 
-  /* ── Helvi pastel tints — used as chart fills and KPI tile backgrounds ── */
+  /* ── Helvi pastel tints — kept as accent strips, not surface fills ────── */
   --color-tint-lavender: hsl(265 35% 88%);
   --color-tint-powder-blue: hsl(210 40% 88%);
   --color-tint-dusty-pink: hsl(15 45% 88%);
@@ -68,17 +61,15 @@
   --color-tint-moss: hsl(85 20% 84%);
   --color-tint-peach: hsl(25 60% 90%);
 
-  /* ── Border radius scale — matches Helvi's 0.875rem base ──────────────── */
-  --radius: 0.875rem;
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
+  /* ── Border radius — sharper than the landing page, more utilitarian ── */
+  --radius: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-md: 0.375rem;
+  --radius-sm: 0.25rem;
 }
 
 /* ── Raw HSL components for inline style={{ background: 'hsl(var(--…))' }}
-   The same six tints, but exposed as bare HSL triples so Recharts can
-   accept them via CSS var lookups (recharts doesn't parse Tailwind
-   classes). */
+   Used by Recharts which can't read Tailwind classes. */
 :root {
   --tint-lavender: 265 35% 88%;
   --tint-powder-blue: 210 40% 88%;
@@ -97,13 +88,25 @@ body {
   color: var(--color-foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";  /* slightly more rectilinear DM Sans */
 }
 
-/* The Helvi landing page exposes a `.font-editorial` utility for serif
-   headlines. Mirror it here for any dashboard headline that wants the
-   same visual weight (e.g. the page title on Overview). */
-.font-editorial {
-  font-family: var(--font-serif);
-  font-weight: 400;
-  letter-spacing: -0.02em;
+/* === Section banner / route label ===
+   Used at the top of each page to give a path-style breadcrumb in the
+   same place Helvi puts its big editorial headline. Reads like a CLI
+   prompt or a file path. */
+.route-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  color: var(--color-muted-foreground);
+  text-transform: lowercase;
+}
+
+/* === Big number for KPI tiles ===
+   Mono + tabular numerals so columns of numbers line up. */
+.metric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "ss01";
 }

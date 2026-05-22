@@ -21,25 +21,25 @@ import {
 export default async function DemographicsPage() {
   const rows = await getDemographics();
 
-  // All three reshapes work off the same demographics_summary fetch.
   const gender      = getGenderSplit(rows);
   const bmi         = getBmiHistogram(rows);
   const eligibility = getEligibilitySplit(rows);
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="font-editorial text-4xl tracking-tight">Demographics</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+    <div className="flex flex-col gap-6">
+      <div className="space-y-1">
+        <div className="font-mono text-xs text-muted-foreground">/demographics</div>
+        <h1 className="text-base font-medium tracking-tight">Lead segments</h1>
+        <p className="text-xs text-muted-foreground max-w-3xl pt-1">
           All leads to date, grouped by gender, WHO BMI bucket, and survey eligibility outcome.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Gender split</CardTitle>
-            <CardDescription>Leads by self-reported gender on the survey.</CardDescription>
+            <CardTitle>gender</CardTitle>
+            <CardDescription>leads by self-reported gender on the survey</CardDescription>
           </CardHeader>
           <CardContent>
             <GenderPie data={gender} />
@@ -48,10 +48,8 @@ export default async function DemographicsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Eligibility outcome</CardTitle>
-            <CardDescription>
-              Leads (cream) vs booked leads (Helvi blue) per eligibility band.
-            </CardDescription>
+            <CardTitle>eligibility</CardTitle>
+            <CardDescription>leads (cream) vs booked leads (helvi blue) per band</CardDescription>
           </CardHeader>
           <CardContent>
             <EligibilityBar data={eligibility} />
@@ -61,7 +59,7 @@ export default async function DemographicsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>BMI distribution</CardTitle>
+          <CardTitle>bmi distribution</CardTitle>
           <CardDescription>
             WHO categories from underweight to obese class III. Includes leads without a recorded
             BMI in the &quot;Unknown&quot; bucket.

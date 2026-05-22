@@ -2,13 +2,7 @@
    app/leads/page.tsx — Recent leads.
 
    Last 100 leads from the recent_leads view (which already flattens
-   first-touch attribution onto each lead row). No pagination UI in v1 —
-   100 rows is enough for stakeholders to scan; if it isn't, add a
-   ?offset= search param and read it via the async searchParams API.
-
-   IMPORTANT: this page renders raw lead emails. v1 access control is the
-   Vercel password gate; once an authenticated viewer is past that gate,
-   they see all leads.
+   first-touch attribution onto each lead row). No pagination UI in v1.
    ========================================================================== */
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -24,78 +18,74 @@ const ELIGIBILITY_VARIANT: Record<string, BadgeVariant> = {
 
 function formatDateTime(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("en-CH", {
-    day:   "numeric",
-    month: "short",
-    year:  "numeric",
-    hour:  "2-digit",
-    minute:"2-digit",
-  });
+  // ISO-style for ops feel: 2026-05-22 11:43
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
 
 export default async function LeadsPage() {
   const leads = await getRecentLeads(100);
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="font-editorial text-4xl tracking-tight">Leads</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {formatInt(leads.length)} most recent leads, newest first. Booked leads have a
-          confirmed Cal.com slot; the rest submitted an email on the eligible screen but never
-          completed the booking.
+    <div className="flex flex-col gap-6">
+      <div className="space-y-1">
+        <div className="font-mono text-xs text-muted-foreground">/leads</div>
+        <h1 className="text-base font-medium tracking-tight">Recent submissions</h1>
+        <p className="text-xs text-muted-foreground max-w-3xl pt-1">
+          {formatInt(leads.length)} most recent leads, newest first. Booked = confirmed Cal.com slot.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent leads</CardTitle>
-          <CardDescription>Joined with each lead&apos;s first-touch UTM source.</CardDescription>
+          <CardTitle>recent_leads</CardTitle>
+          <CardDescription>joined with each lead&apos;s first-touch utm source</CardDescription>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm min-w-[860px]">
             <thead>
-              <tr className="text-left text-muted-foreground border-b border-border">
-                <th className="py-2 pr-4 font-medium">Created</th>
-                <th className="py-2 pr-4 font-medium">Email</th>
-                <th className="py-2 pr-4 font-medium">Gender</th>
-                <th className="py-2 pr-4 font-medium">Eligibility</th>
-                <th className="py-2 pr-4 font-medium text-right">BMI</th>
-                <th className="py-2 pr-4 font-medium">Status</th>
-                <th className="py-2 font-medium">Source</th>
+              <tr className="text-left font-mono text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                <th className="px-4 py-2 font-medium">created_at</th>
+                <th className="px-4 py-2 font-medium">email</th>
+                <th className="px-4 py-2 font-medium">gender</th>
+                <th className="px-4 py-2 font-medium">eligibility</th>
+                <th className="px-4 py-2 font-medium text-right">bmi</th>
+                <th className="px-4 py-2 font-medium">status</th>
+                <th className="px-4 py-2 font-medium">source</th>
               </tr>
             </thead>
             <tbody>
               {leads.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-4 py-6 text-center text-xs text-muted-foreground">
                     No leads yet.
                   </td>
                 </tr>
               )}
               {leads.map((row) => (
                 <tr key={row.lead_id} className="border-b border-border last:border-0">
-                  <td className="py-2 pr-4 text-muted-foreground tabular-nums">
+                  <td className="px-4 py-2 font-mono text-xs text-muted-foreground">
                     {formatDateTime(row.created_at)}
                   </td>
-                  <td className="py-2 pr-4 font-medium">{row.email}</td>
-                  <td className="py-2 pr-4 capitalize">{row.gender}</td>
-                  <td className="py-2 pr-4">
+                  <td className="px-4 py-2">{row.email}</td>
+                  <td className="px-4 py-2 font-mono text-xs lowercase">{row.gender}</td>
+                  <td className="px-4 py-2">
                     <Badge variant={ELIGIBILITY_VARIANT[row.eligibility] ?? "neutral"}>
                       {row.eligibility}
                     </Badge>
                   </td>
-                  <td className="py-2 pr-4 text-right tabular-nums">
-                    {row.bmi !== null ? row.bmi.toFixed(1) : "—"}
+                  <td className="px-4 py-2 text-right metric">
+                    {row.bmi !== null ? row.bmi.toFixed(1) : <span className="text-muted-foreground">—</span>}
                   </td>
-                  <td className="py-2 pr-4">
+                  <td className="px-4 py-2">
                     {row.booking_confirmed_at ? (
-                      <Badge variant="booked">Booked</Badge>
+                      <Badge variant="booked">booked</Badge>
                     ) : (
-                      <Badge variant="pending">Lead only</Badge>
+                      <Badge variant="pending">lead</Badge>
                     )}
                   </td>
-                  <td className="py-2 text-muted-foreground">
+                  <td className="px-4 py-2 font-mono text-xs text-muted-foreground">
                     {row.utm_source ?? "(direct)"}
                     {row.utm_medium ? ` / ${row.utm_medium}` : ""}
                   </td>

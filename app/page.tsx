@@ -3,15 +3,13 @@
 
    The top-level dashboard surface stakeholders see first. Layout:
 
-     1. Page header (title + sub).
+     1. Page header (route label + section title).
      2. KPI strip (4 tiles): visitors 7d, leads 7d, bookings 7d, conversion %.
      3. Two side-by-side panels:
-        - "Funnel, last 30 days" — horizontal waterfall of step counts.
-        - "Traffic, last 30 days" — daily visitor line.
+        - "funnel" — horizontal waterfall of step counts.
+        - "traffic" — daily visitor line.
 
-   Server Component. Data is fetched in parallel via Promise.all to keep
-   the TTFB tight. The two chart panels each receive a serialised data
-   prop and render Recharts on the client.
+   Server Component. Data is fetched in parallel via Promise.all.
    ========================================================================== */
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -31,53 +29,31 @@ export default async function OverviewPage() {
   ]);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       {/* === Page header === */}
-      <div>
-        <h1 className="font-editorial text-4xl tracking-tight">Overview</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Helvi funnel, last 7 days for KPIs and last 30 days for charts. All counts are unique
-          visitors per day; cross-day uniqueness is approximated.
+      <div className="space-y-1">
+        <div className="font-mono text-xs text-muted-foreground">/overview</div>
+        <h1 className="text-base font-medium tracking-tight">Funnel summary</h1>
+        <p className="text-xs text-muted-foreground max-w-3xl pt-1">
+          KPIs cover the last 7 days. Charts cover the last 30. Visitor counts are
+          unique-per-day; cross-day uniqueness is approximated by summing per-day distincts.
         </p>
       </div>
 
       {/* === KPI strip === */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiTile
-          tint="powder-blue"
-          label="Visitors (7d)"
-          value={formatInt(kpi.visitors)}
-          hint="Unique-per-day, page_viewed events"
-        />
-        <KpiTile
-          tint="lavender"
-          label="Leads (7d)"
-          value={formatInt(kpi.leads)}
-          hint="Emails submitted on the eligible screen"
-        />
-        <KpiTile
-          tint="moss"
-          label="Bookings (7d)"
-          value={formatInt(kpi.bookings)}
-          hint="Cal.com confirmations"
-        />
-        <KpiTile
-          tint="peach"
-          label="Conversion (7d)"
-          value={formatPct(kpi.conversion_pct)}
-          hint="Bookings ÷ visitors"
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiTile tint="powder-blue" label="visitors / 7d"   value={formatInt(kpi.visitors)} hint="unique per day, page_viewed" />
+        <KpiTile tint="lavender"    label="leads / 7d"      value={formatInt(kpi.leads)}    hint="email submitted on /eligible" />
+        <KpiTile tint="moss"        label="bookings / 7d"   value={formatInt(kpi.bookings)} hint="cal.com confirmations" />
+        <KpiTile tint="peach"       label="conversion / 7d" value={formatPct(kpi.conversion_pct)} hint="bookings ÷ visitors" />
       </div>
 
-      {/* === Two-column chart row ===
-          On narrow screens these stack. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* === Two-column chart row === */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Funnel, last 30 days</CardTitle>
-            <CardDescription>
-              Distinct-per-day visitor count at each canonical step.
-            </CardDescription>
+            <CardTitle>funnel / 30d</CardTitle>
+            <CardDescription>distinct-per-day visitor count at each canonical step</CardDescription>
           </CardHeader>
           <CardContent>
             <FunnelWaterfall data={funnel} />
@@ -86,8 +62,8 @@ export default async function OverviewPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Traffic, last 30 days</CardTitle>
-            <CardDescription>Unique visitors per day, from page_viewed.</CardDescription>
+            <CardTitle>traffic / 30d</CardTitle>
+            <CardDescription>unique visitors per day, page_viewed</CardDescription>
           </CardHeader>
           <CardContent>
             <TrafficLine data={traffic} />

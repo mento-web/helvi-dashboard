@@ -5,11 +5,6 @@
    shows:
      - Step-by-step "reached" count (waterfall of survivors).
      - Per-step drop-off percentage as a table.
-
-   The reached counts answer "how many visitors got at least this far"
-   which is what you want for funnel-shaped analysis. The waterfall on
-   the Overview page sums distinct-per-day counts, which is more like a
-   raw activity feed — different metric, different chart.
    ========================================================================== */
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,11 +15,8 @@ import { formatInt, formatPct } from "@/lib/utils";
 export default async function FunnelPage() {
   const conversion = await getFunnelConversion(30);
 
-  // Reshape for the waterfall: each step's "reached" count.
   const waterfall = conversion.map((c) => ({ label: c.label, visitors: c.reached }));
 
-  // Drop-off table: from one step to the next.
-  // step N→N+1 drop = (reached_N - reached_{N+1}) / reached_N
   const tableRows = conversion.map((c, i) => {
     const next = conversion[i + 1];
     const dropPct =
@@ -38,21 +30,20 @@ export default async function FunnelPage() {
   });
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="font-editorial text-4xl tracking-tight">Funnel</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Per-visitor furthest-step reached over the last 30 days. A visitor counts at every
-          step up to and including their furthest one.
+    <div className="flex flex-col gap-6">
+      <div className="space-y-1">
+        <div className="font-mono text-xs text-muted-foreground">/funnel</div>
+        <h1 className="text-base font-medium tracking-tight">Per-step conversion</h1>
+        <p className="text-xs text-muted-foreground max-w-3xl pt-1">
+          Per-visitor furthest-step reached over the last 30 days. A visitor counts at every step
+          up to and including their furthest one.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Visitors reaching each step</CardTitle>
-          <CardDescription>
-            Count of unique visitors whose furthest event was this step or later.
-          </CardDescription>
+          <CardTitle>reached / step</CardTitle>
+          <CardDescription>unique visitors whose furthest event was this step or later</CardDescription>
         </CardHeader>
         <CardContent>
           <FunnelWaterfall data={waterfall} />
@@ -61,34 +52,30 @@ export default async function FunnelPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Drop-off table</CardTitle>
-          <CardDescription>
-            Percentage of visitors at each step who did not reach the next one.
-          </CardDescription>
+          <CardTitle>drop-off / step</CardTitle>
+          <CardDescription>percentage of visitors at each step who did not reach the next one</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-muted-foreground border-b border-border">
-                <th className="py-2 pr-4 font-medium">Step</th>
-                <th className="py-2 pr-4 font-medium text-right">Reached</th>
-                <th className="py-2 pr-4 font-medium text-right">Stopped here</th>
-                <th className="py-2 font-medium text-right">Drop to next</th>
+              <tr className="text-left font-mono text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                <th className="px-4 py-2 font-medium">step</th>
+                <th className="px-4 py-2 font-medium text-right">reached</th>
+                <th className="px-4 py-2 font-medium text-right">stopped</th>
+                <th className="px-4 py-2 font-medium text-right">drop_to_next</th>
               </tr>
             </thead>
             <tbody>
               {tableRows.map((row, idx) => (
                 <tr key={row.label} className="border-b border-border last:border-0">
-                  <td className="py-2 pr-4">
-                    <span className="text-muted-foreground mr-2">{idx + 1}.</span>
+                  <td className="px-4 py-2">
+                    <span className="font-mono text-xs text-muted-foreground mr-2">{String(idx + 1).padStart(2, "0")}</span>
                     {row.label}
                   </td>
-                  <td className="py-2 pr-4 text-right tabular-nums">{formatInt(row.reached)}</td>
-                  <td className="py-2 pr-4 text-right tabular-nums text-muted-foreground">
-                    {formatInt(row.dropped)}
-                  </td>
-                  <td className="py-2 text-right tabular-nums">
-                    {row.drop_to_next_pct === null ? "—" : formatPct(row.drop_to_next_pct)}
+                  <td className="px-4 py-2 text-right metric">{formatInt(row.reached)}</td>
+                  <td className="px-4 py-2 text-right metric text-muted-foreground">{formatInt(row.dropped)}</td>
+                  <td className="px-4 py-2 text-right metric">
+                    {row.drop_to_next_pct === null ? <span className="text-muted-foreground">—</span> : formatPct(row.drop_to_next_pct)}
                   </td>
                 </tr>
               ))}
