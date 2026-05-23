@@ -54,9 +54,13 @@ const DEMO_KEYS: FunnelFilterKey[] = [
 export function FunnelFilters({
   filters,
   options,
+  showDate = true,
+  surface = true,
 }: {
   filters: FunnelFiltersState;
   options: FunnelFilterOptions;
+  showDate?: boolean;
+  surface?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -106,6 +110,15 @@ export function FunnelFilters({
     });
   };
 
+  const clearSlices = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const key of FUNNEL_FILTER_KEYS) params.delete(key);
+    const qs = params.toString();
+    startTransition(() => {
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    });
+  };
+
   const defaults = defaultFunnelFilters();
   const dateChanged = filters.from !== defaults.from || filters.to !== defaults.to;
   const anyFilterActive = FUNNEL_FILTER_KEYS.some(
@@ -119,35 +132,49 @@ export function FunnelFilters({
 
   return (
     <div
-      data-dashboard-filters
       className={cn(
-        "rounded-[10px] bg-card p-4 shadow-card flex flex-col gap-3",
+        "flex flex-col gap-3",
+        surface && "rounded-[10px] bg-card p-4 shadow-card",
         isPending && "opacity-80",
       )}
     >
       {/* ── Row 1 · date range + presets + reset ────────────────────── */}
-      <div className="flex items-center flex-wrap gap-2">
-        <span className="text-[12px] font-medium text-muted-foreground w-20 shrink-0">
-          Date
-        </span>
-        <DateField value={filters.from} onChange={(v) => setDate("from", v)} />
-        <span className="text-muted-foreground text-sm">→</span>
-        <DateField value={filters.to} onChange={(v) => setDate("to", v)} />
-        <div className="ml-2 flex items-center gap-1">
-          <PresetChip active={activePreset === 7} onClick={() => setDateRange(7)}>7d</PresetChip>
-          <PresetChip active={activePreset === 30} onClick={() => setDateRange(30)}>30d</PresetChip>
-          <PresetChip active={activePreset === 90} onClick={() => setDateRange(90)}>90d</PresetChip>
+      {showDate && (
+        <div className="flex items-center flex-wrap gap-2">
+          <span className="text-[12px] font-medium text-muted-foreground w-20 shrink-0">
+            Date
+          </span>
+          <DateField value={filters.from} onChange={(v) => setDate("from", v)} />
+          <span className="text-muted-foreground text-sm">→</span>
+          <DateField value={filters.to} onChange={(v) => setDate("to", v)} />
+          <div className="ml-2 flex items-center gap-1">
+            <PresetChip active={activePreset === 7} onClick={() => setDateRange(7)}>7d</PresetChip>
+            <PresetChip active={activePreset === 30} onClick={() => setDateRange(30)}>30d</PresetChip>
+            <PresetChip active={activePreset === 90} onClick={() => setDateRange(90)}>90d</PresetChip>
+          </div>
+          {showReset && (
+            <button
+              type="button"
+              onClick={resetAll}
+              className="ml-auto h-8 rounded-md px-2.5 text-[13px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/45"
+            >
+              Reset
+            </button>
+          )}
         </div>
-        {showReset && (
+      )}
+
+      {!showDate && anyFilterActive && (
+        <div className="flex justify-end">
           <button
             type="button"
-            onClick={resetAll}
-            className="ml-auto h-8 rounded-md px-2.5 text-[13px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/45"
+            onClick={clearSlices}
+            className="h-8 rounded-md px-2.5 text-[13px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/45"
           >
-            Reset
+            Clear slices
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ── Row 2 · traffic dimensions ──────────────────────────────── */}
       <div className="flex items-center flex-wrap gap-2">

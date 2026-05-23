@@ -20,51 +20,56 @@ import { Sparkline } from "@/components/charts/sparkline";
 import { TrafficLine } from "@/components/charts/traffic-line";
 import { getFunnelByStep, getTrafficDailyComparison } from "@/lib/queries/funnel";
 import { getKpiComparison, getKpiTrends } from "@/lib/queries/leads";
+import { parseDateRangeParams } from "@/lib/date-range";
 import { formatInt, formatPct } from "@/lib/utils";
 
-export default async function OverviewPage() {
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export default async function OverviewPage({ searchParams }: { searchParams: SearchParams }) {
+  const range = parseDateRangeParams(await searchParams, 30);
+
   // === Parallel fetch of everything the page needs ===
   const [kpi, trends, funnel, traffic] = await Promise.all([
-    getKpiComparison(7),
-    getKpiTrends(7),
-    getFunnelByStep(30),
-    getTrafficDailyComparison(30),
+    getKpiComparison(range.days),
+    getKpiTrends(range.days),
+    getFunnelByStep(range.days),
+    getTrafficDailyComparison(range.days),
   ]);
 
   return (
-    <DashboardPage title="Overview" period="Last 30 days">
+    <DashboardPage title="Overview" dateRange={range}>
       {/* === KPI strip === */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiTile
           label="Visitors"
           value={formatInt(kpi.current.visitors)}
           delta={kpi.delta.visitors}
-          hint="Last 7 days"
-          comparisonHint="Previous 7 days"
+          hint={range.label}
+          comparisonHint="Previous period"
           sparkline={<Sparkline values={trends.visitors} />}
         />
         <KpiTile
           label="Leads"
           value={formatInt(kpi.current.leads)}
           delta={kpi.delta.leads}
-          hint="Last 7 days"
-          comparisonHint="Previous 7 days"
+          hint={range.label}
+          comparisonHint="Previous period"
           sparkline={<Sparkline values={trends.leads} />}
         />
         <KpiTile
           label="Bookings"
           value={formatInt(kpi.current.bookings)}
           delta={kpi.delta.bookings}
-          hint="Last 7 days"
-          comparisonHint="Previous 7 days"
+          hint={range.label}
+          comparisonHint="Previous period"
           sparkline={<Sparkline values={trends.bookings} />}
         />
         <KpiTile
           label="Visit to booked"
           value={formatPct(kpi.current.conversion_pct)}
           delta={kpi.delta.conversion_pct}
-          hint="Last 7 days"
-          comparisonHint="Previous 7 days"
+          hint={range.label}
+          comparisonHint="Previous period"
           sparkline={<Sparkline values={trends.conversion_pct} />}
         />
       </div>
@@ -82,7 +87,7 @@ export default async function OverviewPage() {
           <CardContent>
             <TrafficLine data={traffic} />
           </CardContent>
-          <PeriodFooter current="Last 30 days" comparison="Previous 30 days" />
+          <PeriodFooter current={range.label} comparison="Previous period" />
         </Card>
 
         <Card className="xl:col-span-4">
@@ -96,7 +101,7 @@ export default async function OverviewPage() {
           <CardContent>
             <FunnelWaterfall data={funnel} />
           </CardContent>
-          <PeriodFooter current="Last 30 days" />
+          <PeriodFooter current={range.label} />
         </Card>
       </div>
     </DashboardPage>

@@ -84,11 +84,12 @@ export function parseFunnelSearchParams(
   };
 
   const defaults = defaultFunnelFilters();
+  const rangeParam = typeof sp.range === "string" ? sp.range : undefined;
   const fromParam = typeof sp.from === "string" ? sp.from : undefined;
   const toParam = typeof sp.to === "string" ? sp.to : undefined;
 
   const out: FunnelFilters = {
-    from: fromParam ?? defaults.from,
+    from: rangeParam === "all" ? "2020-01-01" : fromParam ?? defaults.from,
     to: toParam ?? defaults.to,
   };
   for (const k of FUNNEL_FILTER_KEYS) {

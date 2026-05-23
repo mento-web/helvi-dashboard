@@ -9,15 +9,45 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, ExploreButton, PeriodFooter } from "@/components/ui/card";
 import { DashboardPage } from "@/components/ui/dashboard-page";
 import { ReferralSourceBars, type ReferralSourceBarRow } from "@/components/charts/referral-source-bars";
-import { getTrafficSources } from "@/lib/queries/sources";
+import { SingleParamControl } from "@/components/ui/dashboard-slice-controls";
+import {
+  getTrafficSourcesForRange,
+  type TrafficSourceGroupBy,
+  type TrafficSourceRow,
+} from "@/lib/queries/sources";
+import { parseDateRangeParams } from "@/lib/date-range";
 import { formatInt, formatPct } from "@/lib/utils";
 
-export default async function SourcesPage() {
-  const sources = await getTrafficSources(50);
-  const chartRows = buildSourceChartRows(sources);
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+const SOURCE_GROUP_OPTIONS: Array<{ value: TrafficSourceGroupBy; label: string }> = [
+  { value: "utm_source", label: "Source" },
+  { value: "utm_medium", label: "Medium" },
+  { value: "utm_campaign", label: "Campaign" },
+  { value: "device_type", label: "Device" },
+  { value: "landing_page", label: "Landing page" },
+];
+
+export default async function SourcesPage({ searchParams }: { searchParams: SearchParams }) {
+  const sp = await searchParams;
+  const range = parseDateRangeParams(sp, 30);
+  const groupBy = parseSourceGroupBy(sp.source_group);
+  const sources = await getTrafficSourcesForRange({ range, groupBy, limit: 50 });
+  const chartRows = buildSourceChartRows(sources, groupBy);
 
   return (
-    <DashboardPage title="Sources" period="All time">
+    <DashboardPage
+      title="Sources"
+      dateRange={range}
+      customize={
+        <SingleParamControl
+          label="Group sources by"
+          param="source_group"
+          value={groupBy}
+          options={SOURCE_GROUP_OPTIONS}
+        />
+      }
+    >
       <Card>
         <CardHeader>
           <div>
@@ -29,7 +59,7 @@ export default async function SourcesPage() {
         <CardContent>
           <ReferralSourceBars rows={chartRows} />
         </CardContent>
-        <PeriodFooter current="All time" />
+        <PeriodFooter current={range.label} />
       </Card>
 
       <Card>
@@ -78,17 +108,20 @@ export default async function SourcesPage() {
             </tbody>
           </table>
         </CardContent>
-        <PeriodFooter current="All time" />
+        <PeriodFooter current={range.label} />
       </Card>
     </DashboardPage>
   );
 }
 
-function buildSourceChartRows(sources: Awaited<ReturnType<typeof getTrafficSources>>): ReferralSourceBarRow[] {
+function buildSourceChartRows(
+  sources: TrafficSourceRow[],
+  groupBy: TrafficSourceGroupBy,
+): ReferralSourceBarRow[] {
   const bySource = new Map<string, number>();
 
   for (const row of sources) {
-    const source = sourceLabel(row.utm_source, row.referrer_url);
+    const source = sourceLabel(row, groupBy);
     bySource.set(source, (bySource.get(source) ?? 0) + row.visitor_count);
   }
 
@@ -97,16 +130,16 @@ function buildSourceChartRows(sources: Awaited<ReturnType<typeof getTrafficSourc
     .slice(0, 8);
 }
 
-function sourceLabel(utmSource: string, referrerUrl: string): string {
-  const source = utmSource?.trim();
-  if (source && source !== "unknown" && source !== "(not set)") {
-    return source.toLowerCase();
-  }
+function sourceLabel(row: TrafficSourceRow, groupBy: TrafficSourceGroupBy): string {
+  if (groupBy === "utm_source") return row.utm_source;
+  if (groupBy === "utm_medium") return row.utm_medium;
+  if (groupBy === "utm_campaign") return row.utm_campaign;
+  return row.referrer_url || "(direct)";
+}
 
-  try {
-    const host = new URL(referrerUrl).hostname.replace(/^www\./, "");
-    return host.split(".")[0] || "direct";
-  } catch {
-    return "direct";
-  }
+function parseSourceGroupBy(value: string | string[] | undefined): TrafficSourceGroupBy {
+  const raw = typeof value === "string" ? value : undefined;
+  return SOURCE_GROUP_OPTIONS.some((option) => option.value === raw)
+    ? (raw as TrafficSourceGroupBy)
+    : "utm_source";
 }

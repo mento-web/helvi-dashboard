@@ -6,17 +6,20 @@
    ========================================================================== */
 
 import * as React from "react";
-import { DashboardToolbarButton } from "@/components/ui/dashboard-actions";
+import { DashboardCustomizeButton, DashboardDateRangeButton } from "@/components/ui/dashboard-actions";
 import { cn } from "@/lib/utils";
+import type { DashboardDateRange } from "@/lib/date-range";
 
 export function DashboardPage({
   title,
-  period,
+  dateRange,
+  customize,
   children,
   className,
 }: {
   title: string;
-  period?: string;
+  dateRange?: DashboardDateRange;
+  customize?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }) {
@@ -27,10 +30,8 @@ export function DashboardPage({
           {title}
         </h1>
         <div className="flex items-center gap-2">
-          {period && (
-            <DashboardToolbarButton action="period" label={period} />
-          )}
-          <DashboardToolbarButton action="customize" label="Customize" />
+          {dateRange && <DashboardDateRangeButton range={dateRange} />}
+          <DashboardCustomizeButton>{customize}</DashboardCustomizeButton>
         </div>
       </div>
       {children}

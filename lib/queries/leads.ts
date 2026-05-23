@@ -9,6 +9,7 @@
 import { getSupabase } from "@/lib/supabase/server";
 import { TENANT_ID } from "@/lib/tenant";
 import { deltaPct } from "@/lib/utils";
+import type { DashboardDateRange } from "@/lib/date-range";
 
 export type RecentLeadRow = {
   tenant_id: string;
@@ -31,13 +32,31 @@ export type RecentLeadRow = {
 /* ── getRecentLeads ───────────────────────────────────────────────────────
    Paginated read against the recent_leads view. The view already orders
    the underlying join on leads.created_at desc, so we just slice. */
-export async function getRecentLeads(limit = 100, offset = 0): Promise<RecentLeadRow[]> {
+export async function getRecentLeads(
+  limit = 100,
+  offset = 0,
+  filters?: {
+    range?: DashboardDateRange;
+    gender?: string[];
+    eligibility?: string[];
+  },
+): Promise<RecentLeadRow[]> {
   const supabase = getSupabase();
-  const { data, error } = await supabase
+  let query = supabase
     .from("recent_leads")
     .select("*")
     .eq("tenant_id", TENANT_ID)
-    .order("created_at", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (filters?.range) {
+    query = query
+      .gte("created_at", `${filters.range.from}T00:00:00.000Z`)
+      .lt("created_at", `${filters.range.to}T00:00:00.000Z`);
+  }
+  if (filters?.gender?.length) query = query.in("gender", filters.gender);
+  if (filters?.eligibility?.length) query = query.in("eligibility", filters.eligibility);
+
+  const { data, error } = await query
     .range(offset, offset + limit - 1)
     .returns<RecentLeadRow[]>();
 

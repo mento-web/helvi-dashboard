@@ -21,6 +21,7 @@ import {
   getFunnelFilterOptions,
   parseFunnelSearchParams,
 } from "@/lib/queries/funnel";
+import { parseDateRangeParams } from "@/lib/date-range";
 import { formatInt, formatPct } from "@/lib/utils";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -33,6 +34,7 @@ export default async function FunnelPage({
   // Next 16: searchParams is a Promise. Await it before parsing.
   const spResolved = await searchParams;
   const filters = parseFunnelSearchParams(spResolved);
+  const range = parseDateRangeParams(spResolved, 30);
 
   // Both queries hit the same view; running them in parallel saves a
   // round-trip's worth of latency without much code cost.
@@ -75,10 +77,11 @@ export default async function FunnelPage({
   });
 
   return (
-    <DashboardPage title="Funnel" period={`${filters.from} to ${filters.to}`}>
-      {/* === Filters — client component, writes to URL searchParams === */}
-      <FunnelFilters filters={filters} options={options} />
-
+    <DashboardPage
+      title="Funnel"
+      dateRange={{ ...range, from: filters.from, to: filters.to }}
+      customize={<FunnelFilters filters={filters} options={options} showDate={false} surface={false} />}
+    >
       <Card>
         <CardHeader>
           <div>

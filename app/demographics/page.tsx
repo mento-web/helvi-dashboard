@@ -14,20 +14,58 @@ import { EligibilityBar } from "@/components/charts/eligibility-bar";
 import { GenderPie } from "@/components/charts/gender-pie";
 import {
   getBmiHistogram,
-  getDemographics,
+  getDemographicsForRange,
   getEligibilitySplit,
   getGenderSplit,
 } from "@/lib/queries/demographics";
+import { MultiParamControl } from "@/components/ui/dashboard-slice-controls";
+import { parseDateRangeParams } from "@/lib/date-range";
 
-export default async function DemographicsPage() {
-  const rows = await getDemographics();
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export default async function DemographicsPage({ searchParams }: { searchParams: SearchParams }) {
+  const sp = await searchParams;
+  const range = parseDateRangeParams(sp, 30);
+  const selectedGender = parseMultiParam(sp.gender);
+  const selectedEligibility = parseMultiParam(sp.eligibility);
+  const rows = await getDemographicsForRange({
+    range,
+    gender: selectedGender,
+    eligibility: selectedEligibility,
+  });
 
   const gender      = getGenderSplit(rows);
   const bmi         = getBmiHistogram(rows);
   const eligibility = getEligibilitySplit(rows);
 
   return (
-    <DashboardPage title="Demographics" period="All time">
+    <DashboardPage
+      title="Demographics"
+      dateRange={range}
+      customize={
+        <div className="grid gap-4">
+          <MultiParamControl
+            label="Gender"
+            param="gender"
+            selected={selectedGender}
+            options={[
+              { value: "women", label: "Women" },
+              { value: "men", label: "Men" },
+            ]}
+          />
+          <MultiParamControl
+            label="Eligibility"
+            param="eligibility"
+            selected={selectedEligibility}
+            options={[
+              { value: "eligible", label: "Eligible" },
+              { value: "borderline", label: "Borderline" },
+              { value: "low-bmi", label: "Low BMI" },
+            ]}
+          />
+        </div>
+      }
+    >
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
@@ -40,7 +78,7 @@ export default async function DemographicsPage() {
           <CardContent>
             <GenderPie data={gender} />
           </CardContent>
-          <PeriodFooter current="All time" />
+          <PeriodFooter current={range.label} />
         </Card>
 
         <Card>
@@ -54,7 +92,7 @@ export default async function DemographicsPage() {
           <CardContent>
             <EligibilityBar data={eligibility} />
           </CardContent>
-          <PeriodFooter current="All time" />
+          <PeriodFooter current={range.label} />
         </Card>
       </div>
 
@@ -69,8 +107,14 @@ export default async function DemographicsPage() {
         <CardContent>
           <BmiHistogram data={bmi} />
         </CardContent>
-        <PeriodFooter current="All time" />
+        <PeriodFooter current={range.label} />
       </Card>
     </DashboardPage>
   );
+}
+
+function parseMultiParam(value: string | string[] | undefined): string[] {
+  if (value === undefined) return [];
+  const raw = Array.isArray(value) ? value.join(",") : value;
+  return raw.split(",").map((item) => item.trim()).filter(Boolean);
 }
