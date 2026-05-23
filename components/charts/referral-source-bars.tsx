@@ -18,7 +18,7 @@ const VBOX_W = 1000;
 const VBOX_H = 360;
 const PLOT_TOP = 18;
 const PLOT_RIGHT = 20;
-const PLOT_BOTTOM = 56;
+const PLOT_BOTTOM = 18;
 const PLOT_LEFT = 56;
 const GRID_LINES = 5;
 
@@ -47,7 +47,7 @@ export function ReferralSourceBars({ rows }: { rows: ReferralSourceBarRow[] }) {
         <svg
           viewBox={`0 0 ${VBOX_W} ${VBOX_H}`}
           preserveAspectRatio="none"
-          className="block h-[360px] w-full overflow-visible"
+          className="block h-[340px] w-full overflow-visible"
           aria-label="Referral source visitor counts"
         >
           {Array.from({ length: GRID_LINES }, (_, i) => {
@@ -109,18 +109,24 @@ export function ReferralSourceBars({ rows }: { rows: ReferralSourceBarRow[] }) {
                   ry={6}
                   fill="hsl(var(--accent-raw))"
                 />
-                <text
-                  x={x + barWidth / 2}
-                  y={PLOT_TOP + plotHeight + 30}
-                  textAnchor="middle"
-                  className="fill-muted-foreground text-[13px] font-medium"
-                >
-                  {row.source}
-                </text>
               </g>
             );
           })}
         </svg>
+        <div
+          className="grid border-t border-border/80"
+          style={{ gridTemplateColumns: `repeat(${rows.length}, minmax(0, 1fr))` }}
+        >
+          {rows.map((row) => (
+            <div
+              key={`label-${row.source}`}
+              className="min-w-0 px-2 pt-3 text-center text-[12px] font-medium leading-snug text-muted-foreground [overflow-wrap:anywhere] [word-break:break-word]"
+              title={row.source}
+            >
+              {row.source}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
